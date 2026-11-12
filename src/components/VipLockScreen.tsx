@@ -267,37 +267,9 @@ export const VipLockScreen: React.FC<VipLockScreenProps> = ({
     setErrorMessage('');
 
     try {
-      // 1. Check if user typed or selected Trial and used a trial keyword or valid key
       const currentPlan = getSelectedPlan();
-      const isTrialAttempt =
-        cleanCode === 'TRIAL' ||
-        cleanCode === 'FREE' ||
-        cleanCode.startsWith('TR-') ||
-        cleanCode === 'LOCATE' ||
-        cleanCode.includes('TRIAL');
 
-      if (isTrialAttempt) {
-        const nowIso = new Date().toISOString();
-        const expiry = new Date(Date.now() + 1 * 24 * 3600 * 1000).toISOString();
-        localStorage.setItem('vip_active_code', cleanCode);
-        localStorage.setItem('vip_device_id', deviceId);
-        localStorage.setItem('vip_plan_name', currentLang === 'ar' ? 'تجربة يوم' : 'Trial (1 Day)');
-        localStorage.setItem('vip_activated_at', nowIso);
-        localStorage.setItem('vip_expiry_date', expiry);
-        localStorage.removeItem('vip_termination_notice');
-
-        const bridge = getNativeBridge();
-        if (bridge && typeof bridge.setVipLicensed === 'function') {
-          bridge.setVipLicensed(true);
-        }
-
-        onUnlock(cleanCode, currentLang === 'ar' ? 'تجربة يوم' : 'Trial (1 Day)', expiry);
-        setIsLoading(false);
-        setIsInitialChecking(false);
-        return true;
-      }
-
-      // 2. فحص الكود عبر واجهة التحقق الموحدة في السيرفر (/api/license/verify)
+      // 1. فحص الكود عبر واجهة التحقق الموحدة في السيرفر (/api/license/verify)
       // تدعم مطابقة الصفر والحرف O والربط المباشر مع قاعدة بيانات Firebase
       try {
         const vipFp = getVipDeviceId();
@@ -460,12 +432,11 @@ export const VipLockScreen: React.FC<VipLockScreenProps> = ({
   const handleActivateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!activationKey.trim()) {
-      // If user selected trial and pressed activate without key, give them trial
-      if (selectedPackageId === 'trial_1_day' || selectedPackageId === 'trial_3_days') {
-        verifyCodeOnline('TRIAL-1DAY', false);
-        return;
-      }
-      setErrorMessage(currentLang === 'ar' ? 'الصق مفتاح التفعيل أولاً' : 'Please paste activation key first');
+      setErrorMessage(
+        currentLang === 'ar'
+          ? 'يرجى إدخال كود الاشتراك أولاً (حتى لباقة تجربة يوم)'
+          : 'Please enter a valid subscription code first'
+      );
       return;
     }
     verifyCodeOnline(activationKey, false);

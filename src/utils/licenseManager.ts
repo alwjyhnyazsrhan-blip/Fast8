@@ -44,26 +44,8 @@ export async function validateLicenseOnline(
     };
   }
 
-  // دعم الأكواد التجريبية والمحلية للعمل بدون إنترنت أو استضافة (Offline-First License)
-  const isTrialCode = normalized.startsWith('TRIAL') || normalized.includes('1DAY') || normalized.includes('3DAY');
   const savedLocalCode = (typeof localStorage !== 'undefined' ? localStorage.getItem('vip_active_code') : '')?.trim().toUpperCase();
   const savedLocalExpiry = typeof localStorage !== 'undefined' ? localStorage.getItem('vip_expiry_date') : null;
-
-  // إذا كان الكود تجريبياً ومحفوظاً وصالح التاريخ: اعتباره نشطاً فوراً ومحلياً
-  if (isTrialCode && savedLocalExpiry) {
-    const expTime = new Date(savedLocalExpiry).getTime();
-    if (!isNaN(expTime) && expTime > Date.now()) {
-      const remainingHours = Math.max(0, Math.ceil((expTime - Date.now()) / (1000 * 3600)));
-      return {
-        isValid: true,
-        reason: 'active',
-        message: '✅ باقة تجريبية نشطة محلياً (وضع العمل المستقل بدون استضافة)',
-        code: normalized,
-        expiryDate: savedLocalExpiry,
-        remainingHours,
-      };
-    }
-  }
 
   const currentDevice = targetDeviceId || getVipDeviceId();
   const vipFingerprint = getVipDeviceId();
@@ -159,19 +141,6 @@ export async function validateLicenseOnline(
     );
 
     if (!match) {
-      // إذا كان الكود تجريبياً ومحفوظاً، نسمح له بالاستمرار حتى نهاية مدته
-      if (isTrialCode && savedLocalExpiry && new Date(savedLocalExpiry).getTime() > Date.now()) {
-        const remainingHours = Math.max(0, Math.ceil((new Date(savedLocalExpiry).getTime() - Date.now()) / (1000 * 3600)));
-        return {
-          isValid: true,
-          reason: 'active',
-          message: '✅ باقة تجريبية نشطة محلياً',
-          code: normalized,
-          expiryDate: savedLocalExpiry,
-          remainingHours,
-        };
-      }
-
       return {
         isValid: false,
         reason: 'revoked',
