@@ -105,8 +105,7 @@ export async function testFirestoreConnection(): Promise<boolean> {
   }
 }
 
-// Auto test on load
+// Auto test RTDB connection on load (project uses Firebase Realtime Database)
 testRtdbConnection().catch(() => {});
-testFirestoreConnection().catch(() => {});
 
 export default app;

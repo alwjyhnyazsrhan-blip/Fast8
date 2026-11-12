@@ -668,7 +668,26 @@ export default function App() {
           totalEarningsSar: data.stats?.totalEarningsSar ?? prev.totalEarningsSar,
         }));
         if (data.settings) {
-          setSettings(data.settings);
+          let hasSavedLocal = false;
+          try {
+            const localRaw = localStorage.getItem('locatego_settings');
+            if (localRaw) {
+              const localParsed = JSON.parse(localRaw);
+              if (localParsed && typeof localParsed.maxDistanceKm === 'number') {
+                hasSavedLocal = true;
+                // مزامنة إعدادات المستخدم المحفوظة نحو السيرفر بدلاً من استبدالها بقيمه الافتراضية
+                fetch('/api/settings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'X-Device-Id': targetDeviceId },
+                  body: JSON.stringify({ ...localParsed, deviceId: targetDeviceId }),
+                }).catch(() => {});
+              }
+            }
+          } catch {}
+
+          if (!hasSavedLocal && !getNativeBridge()) {
+            setSettings(data.settings);
+          }
         }
       }
     } catch {

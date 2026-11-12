@@ -119,9 +119,10 @@ class LocateGoAccessibilityService : AccessibilityService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var renderClient: RenderApiClient
+    private lateinit var prefs: SharedPreferences
     private var sharedPrefsListener: SharedPreferences.OnSharedPreferenceChangeListener? = null
 
-    // تخزين الإعدادات في الذاكرة الحية (Volatile) للاسترجاع الفوري في 0 نانو ثانية دون أي قراءة للقرص
+    // تخزين الإعدادات في الذاكرة الحية (Volatile) مع تحديث مستمر من SharedPreferences
     @Volatile private var cachedIsVipLicensed: Boolean = false
     @Volatile private var cachedMaxAllowedKm: Double = 3.0 // الحد الأقصى لمسافة العميل (التوصيل)
     @Volatile private var cachedMaxPickupKm: Double = 1.5  // الحد الأقصى لمسافة المطعم (الاستلام)
@@ -131,24 +132,34 @@ class LocateGoAccessibilityService : AccessibilityService() {
     @Volatile private var cachedTapIntervalMs: Long = 10L  // فاصل النقرات المتتالية (ms)
     @Volatile private var cachedEnableCustomInterval: Boolean = false
 
-    // تعابير نمطية مستهدفة بدقة عالية تدعم صيغتي: "المتجر 2.0 كم" وأيضاً "2.0 كم المتجر"
+    // تعابير نمطية مستهدفة بدقة عالية تدعم صيغتي: "المتجر 2.0 كم" وأيضاً "2.0 كم المتجر" والأرقام العربية
     private val pickupDistancePattern = Pattern.compile(
-        "(?:(?:مسافة\\s*(?:المتجر|المطعم|الاستلام)|المتجر\\s*يبعد|المطعم\\s*يبعد|مسافة\\s*الاستلام|الاستلام|المطعم|المتجر|pickup|store)\\s*[:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:كم|كيلو|km|k\\.m)|(\\d+(?:[.,]\\d+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:المتجر|المطعم|الاستلام|pickup|store))",
+        "(?:(?:مسافة\\s*(?:المتجر|المطعم|الاستلام)|المتجر\\s*يبعد|المطعم\\s*يبعد|مسافة\\s*الاستلام|الاستلام|المطعم|المتجر|pickup|store)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:المتجر|المطعم|الاستلام|pickup|store))",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val deliveryDistancePattern = Pattern.compile(
-        "(?:(?:مسافة\\s*(?:العميل|التوصيل|الوجهة)|العميل\\s*يبعد|مسافة\\s*التوصيل|التوصيل|العميل|الوجهة|delivery|dropoff|customer)\\s*[:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:كم|كيلو|km|k\\.m)|(\\d+(?:[.,]\\d+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:العميل|التوصيل|الوجهة|delivery|dropoff|customer))",
+        "(?:(?:مسافة\\s*(?:العميل|التوصيل|الوجهة)|العميل\\s*يبعد|مسافة\\s*التوصيل|التوصيل|العميل|الوجهة|delivery|dropoff|customer)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:العميل|التوصيل|الوجهة|delivery|dropoff|customer))",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val generalDistancePattern = Pattern.compile(
-        "(?:المسافة\\s*الإجمالية|إجمالي\\s*المسافة|المسافة\\s*الكلية|المسافة|يبعد|تبعد|distance|total)?\\s*[:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:كم|كيلو|km|k\\.m)",
+        "(?:المسافة\\s*الإجمالية|إجمالي\\s*المسافة|المسافة\\s*الكلية|المسافة|يبعد|تبعد|distance|total)?\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)",
+        Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
+    )
+
+    private val kmRegexPattern = Pattern.compile(
+        "([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو\\s*متر|كيلو|km|k\\.m)",
+        Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
+    )
+
+    private val meterRegexPattern = Pattern.compile(
+        "(?:^|[\\s:(])([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:متر|meters?|م|m)(?=$|[\\s،,.):])",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val payoutPattern = Pattern.compile(
-        "(?:الأجر|المبلغ|السعر|قيمة\\s*التوصيل|الربح|الأرباح|fee|sar|payout)?\\s*[:]?\\s*(\\d+(?:[.,]\\d+)?)\\s*(?:ر\\.س|ريال|sar|SAR|ر\\.\\s*س)",
+        "(?:الأجر|المبلغ|السعر|قيمة\\s*التوصيل|الربح|الأرباح|fee|sar|payout)?\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:ر\\.س|ريال|sar|SAR|ر\\.\\s*س)",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
@@ -183,11 +194,13 @@ class LocateGoAccessibilityService : AccessibilityService() {
         // 2. تفعيل ذاكرة الإعدادات الفورية
         initLiveSettingsCache()
 
-        Log.i("LocateGoService", "⚡⚡ ULTRA ZERO-DELAY Auto-Accept Engine ACTIVATED (Timeout=0ms • Single-Pass O(N) Scanner • Dual RTL/LTR Swipe & Tap).")
+        Log.i("LocateGoService", "⚡⚡ STRICT ZERO-DELAY Auto-Accept Engine ACTIVATED (Fail-Closed Distance Verification).")
     }
 
-    private fun initLiveSettingsCache() {
-        val prefs = getSharedPreferences("locate_go_prefs", Context.MODE_PRIVATE)
+    private fun refreshCachedSettings() {
+        if (!::prefs.isInitialized) {
+            prefs = getSharedPreferences("locate_go_prefs", Context.MODE_PRIVATE)
+        }
         cachedIsVipLicensed = prefs.getBoolean("is_vip_licensed", false)
         cachedMaxAllowedKm = prefs.getFloat("max_distance_km", 3.0f).toDouble()
         cachedMaxPickupKm = prefs.getFloat("max_pickup_distance_km", 1.5f).toDouble()
@@ -196,6 +209,11 @@ class LocateGoAccessibilityService : AccessibilityService() {
         cachedSwipeSpeedMs = prefs.getInt("swipe_speed_ms", 60).toLong().coerceIn(40L, 500L)
         cachedTapIntervalMs = prefs.getInt("tap_interval_ms", 10).toLong()
         cachedEnableCustomInterval = prefs.getBoolean("enable_custom_interval", false)
+    }
+
+    private fun initLiveSettingsCache() {
+        prefs = getSharedPreferences("locate_go_prefs", Context.MODE_PRIVATE)
+        refreshCachedSettings()
 
         sharedPrefsListener = SharedPreferences.OnSharedPreferenceChangeListener { sp, key ->
             when (key) {
@@ -215,16 +233,19 @@ class LocateGoAccessibilityService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
-        // فحص صارم وسريع لحالة ترخيص VIP من الذاكرة الحية في 0 نانو ثانية دون إبطاء الواجهة
+        // تحديث سريع من الذاكرة المشتركة لضمان التزامن التام مع الإعدادات التي حددها السائق
+        refreshCachedSettings()
+
+        // فحص صارم وسريع لحالة ترخيص VIP
         if (!cachedIsVipLicensed) return
 
-        // فحص سريع: إذا كان القبول التلقائي مغلقاً في الذاكرة الحية نخرج فوراً
+        // فحص سريع: إذا كان القبول التلقائي مغلقاً نخرج فوراً
         if (!cachedAutoAccept) return
 
         val packageName: String = event.packageName?.toString() ?: ""
         val lowerPkg = packageName.trim().lowercase()
 
-        // 🛡️ حظر قطعي لتطبيق واتساب: ممنوع منعاً باتاً مراقبة شاشة الواتساب أو فحص نصوصها أو السحب أو النقر عليها نهائياً
+        // 🛡️ حظر قطعي لتطبيق واتساب وتيليجرام: ممنوع منعاً باتاً مراقبتها أو السحب أو النقر عليها نهائياً
         if (lowerPkg.contains("whatsapp") || lowerPkg == "com.whatsapp" || lowerPkg == "com.whatsapp.w4b" || lowerPkg.contains("telegram")) {
             return
         }
@@ -243,78 +264,143 @@ class LocateGoAccessibilityService : AccessibilityService() {
         inspectScreenForOrderOffer(root, packageName)
     }
 
+    private data class CapturedDistance(
+        val km: Double,
+        val text: String,
+        val bounds: Rect
+    )
+
     /**
      * نتيجة المسح الفوري الأحادي للشاشة
      */
     private data class FastScanResult(
         val texts: MutableList<String> = mutableListOf(),
+        val capturedDistances: MutableList<CapturedDistance> = mutableListOf(),
         var acceptButtonNode: AccessibilityNodeInfo? = null,
+        var acceptButtonBounds: Rect? = null,
         var directDeliveryKm: Double? = null,
         var directPickupKm: Double? = null,
-        var directPayoutSar: Double? = null
+        var directPayoutSar: Double? = null,
+        var userLabelX: Float? = null,
+        var storeLabelX: Float? = null,
+        var hasUserLabel: Boolean = false,
+        var hasStoreLabel: Boolean = false,
+        var hasCustomerLabel: Boolean = false
     )
 
     /**
-     * فحص الشاشة بدقة فائقة وبسرعة الصاروخ (Single-Pass O(N))
+     * فحص الشاشة بدقة فائقة وبصرامة تامة (Strict Fail-Closed Verification):
+     * - يمنع القبول نهائياً إذا لم يظهر زر/شريط القبول على الشاشة.
+     * - يمنع القبول نهائياً إذا لم تُقرأ المسافات كاملة بعد (ينتظر التحديث التالي بعد لحظات).
+     * - يرفض أي طلب يتجاوز حد المتجر أو حد العميل مهما كانت الظروف.
      */
     private fun inspectScreenForOrderOffer(root: AccessibilityNodeInfo, packageName: String) {
         val displayHeight = resources.displayMetrics.heightPixels
         val scanResult = FastScanResult()
 
-        // دورة مسح واحدة تجمع النصوص وترصد زر القبول في نفس اللحظة دون تكرار المرور
+        // دورة مسح واحدة تجمع النصوص والمسافات ومواقعها وترصد زر القبول
         fastSinglePassTraversal(root, scanResult, displayHeight)
 
+        // إذا لم يوجد زر أو شريط قبول على الشاشة، لا نتخذ أي إجراء (مثل شاشات الطلبات المقبولة مسبقاً)
+        val targetAcceptNode = scanResult.acceptButtonNode ?: return
         if (scanResult.texts.isEmpty()) return
 
         val joinedContent = scanResult.texts.joinToString(" ")
 
-        // 1. استرجاع أحدث قيم الإعدادات الحية من الذاكرة الحية (0 نانو ثانية) لضمان أقصى سرعة استجابة
+        // 1. استرجاع أحدث قيم الإعدادات المحددة من السائق
         val maxAllowedDelivery = cachedMaxAllowedKm
         val maxAllowedPickup = cachedMaxPickupKm
-        val minPayoutSar = cachedMinPayoutSar
 
-        // 2. استخراج كافة المسافات الرقمية الموجودة في نصوص بطاقة العرض
-        val allDists = extractAllDistancesFromTexts(scanResult.texts)
+        // 2. عزل المسافات الخاصة ببطاقة العرض الحالية (الأقرب والأعلى مباشرة من شريط/زر القبول)
+        val acceptBounds = scanResult.acceptButtonBounds
+        val scopedDistances: List<CapturedDistance> = if (scanResult.capturedDistances.size > 2 && acceptBounds != null) {
+            val aboveAccept = scanResult.capturedDistances
+                .filter { it.bounds.bottom <= acceptBounds.bottom + 80 }
+                .sortedByDescending { it.bounds.centerY() }
+            if (aboveAccept.size >= 2) aboveAccept.take(2) else scanResult.capturedDistances
+        } else {
+            scanResult.capturedDistances
+        }
 
-        // 3. تحديد مسافة المطعم / الاستلام (Pickup) ومسافة العميل / الوجهة (Delivery) بدقة ذكية
+        val allDists = scopedDistances.map { it.km }
+
+        // 3. تحديد مسافة المطعم / الاستلام (Pickup) ومسافة العميل / الوجهة (Delivery) بدقة صارمة
         var deliveryDistKm: Double? = scanResult.directDeliveryKm
         var pickupDistKm: Double? = scanResult.directPickupKm
 
-        if (allDists.size >= 2) {
+        val isDualLayoutCard = scanResult.hasUserLabel && scanResult.hasStoreLabel
+
+        if (scopedDistances.size >= 2) {
+            val userX = scanResult.userLabelX
+            val storeX = scanResult.storeLabelX
+
+            // إذا توفرت إحداثيات "موقعك" و"المتجر" (بطاقة Locate)، نحدد المتجر والعميل مكانياً بدقة 100%
+            if ((pickupDistKm == null || deliveryDistKm == null) && userX != null && storeX != null && userX != storeX) {
+                val isRtl = userX > storeX
+                val storeSideDist = scopedDistances.firstOrNull { d ->
+                    val cx = d.bounds.centerX().toFloat()
+                    if (isRtl) cx > storeX else cx < storeX
+                }
+                val customerSideDist = scopedDistances.firstOrNull { d ->
+                    val cx = d.bounds.centerX().toFloat()
+                    if (isRtl) cx < storeX else cx > storeX
+                }
+                if (pickupDistKm == null && storeSideDist != null) {
+                    pickupDistKm = storeSideDist.km
+                }
+                if (deliveryDistKm == null && customerSideDist != null) {
+                    deliveryDistKm = customerSideDist.km
+                }
+            }
+
+            // Fallback آمن عبر الترتيب التصاعدي إذا لم تُحدد مكانياً
             val sortedDists = allDists.sorted()
             if (pickupDistKm == null) {
                 pickupDistKm = sortedDists.first()
             }
             if (deliveryDistKm == null) {
-                // نأخذ مسافة العميل كأقرب مسافة منطقية مطابقة لنصوص التوصيل، أو ثاني أقل مسافة لتجنب احتساب المسافة الإجمالية الخاطئة
-                deliveryDistKm = if (sortedDists.size > 2 && sortedDists.last() > (sortedDists[0] + sortedDists[1]) * 0.9) {
-                    sortedDists[sortedDists.size - 2]
-                } else {
-                    sortedDists.last()
-                }
+                deliveryDistKm = sortedDists.last()
             }
-        } else if (allDists.size == 1) {
-            val singleDist = allDists[0]
-            val hasStoreContext = joinedContent.contains("متجر") || joinedContent.contains("مطعم") || joinedContent.contains("موقعك")
-            val hasCustomerContext = joinedContent.contains("عميل") || joinedContent.contains("زبون") || joinedContent.contains("توصيل") || joinedContent.contains("وجهة")
+        } else if (scopedDistances.size == 1) {
+            val singleDist = scopedDistances[0].km
+            if (isDualLayoutCard) {
+                // بطاقة مزدوجة المسافة لم يكتمل رسم المسافة الثانية فيها بعد: نرفض القبول المؤقت وننتظر الإطار التالي
+                Log.d("LocateGoService", "⏳ Waiting for both distances on dual-distance card (only saw $singleDist km)")
+                return
+            }
 
-            if (hasCustomerContext && !hasStoreContext) {
-                deliveryDistKm = singleDist
-            } else if (hasStoreContext && !hasCustomerContext) {
-                pickupDistKm = singleDist
+            val hasStoreOnly = scanResult.hasStoreLabel && !scanResult.hasCustomerLabel
+            val hasCustomerOnly = scanResult.hasCustomerLabel && !scanResult.hasStoreLabel
+
+            if (hasStoreOnly) {
+                pickupDistKm = pickupDistKm ?: singleDist
+                // مسافة العميل مجهولة: لا نقبلها أبداً كمسافة عميل!
+            } else if (hasCustomerOnly) {
+                deliveryDistKm = deliveryDistKm ?: singleDist
             } else {
-                deliveryDistKm = singleDist
+                // شاشة بمسافة واحدة إجمالية واضحة (مثل بعض التطبيقات الأخرى)
+                deliveryDistKm = deliveryDistKm ?: singleDist
             }
+        } else if (deliveryDistKm == null && pickupDistKm == null) {
+            // لم يُقرأ أي رقم مسافة بعد (مثلاً أثناء حركة فتح البطاقة): ممنوع القبول الأعمى!
+            Log.d("LocateGoService", "⏳ No distances parsed yet on offer screen — skipping blind accept.")
+            return
         }
 
-        val targetEvaluationDistanceKm = deliveryDistKm ?: pickupDistKm ?: allDists.firstOrNull() ?: 1.0
+        // إذا كانت الشاشة تحتوي على "موقعك" + "المتجر" ولم تتوفر المسافتان معاً، ننتظر الإطار المكتمل
+        if (isDualLayoutCard && (deliveryDistKm == null || pickupDistKm == null)) {
+            Log.d("LocateGoService", "⏳ Incomplete dual-distance offer (pickup=$pickupDistKm, delivery=$deliveryDistKm) — waiting.")
+            return
+        }
 
-        // 4. استخراج أجر التوصيل (للتوثيق فقط دون استخدامه في شروط القبول أو الرفض)
+        val targetEvaluationDistanceKm = deliveryDistKm ?: pickupDistKm ?: return
+
+        // 4. استخراج أجر التوصيل (للتوثيق فقط)
         var payoutSar = scanResult.directPayoutSar ?: 18.0
         if (scanResult.directPayoutSar == null) {
             val payoutMatcher = payoutPattern.matcher(joinedContent)
             if (payoutMatcher.find()) {
-                payoutMatcher.group(1)?.replace(',', '.')?.toDoubleOrNull()?.let { payoutSar = it }
+                normalizeNumberString(payoutMatcher.group(1))?.let { payoutSar = it }
             }
         }
 
@@ -328,30 +414,24 @@ class LocateGoAccessibilityService : AccessibilityService() {
         val storeName = extractStoreName(scanResult.texts)
         val customerDistrict = extractCustomerDistrict(joinedContent, scanResult.texts)
 
-        // منع تكرار النقر أو السحب على نفس الطلب لنفس الشاشة خلال نافذة فائقة القصر (250ms) للسماح بتدارك أي حركة إطارات
-        val deduplicationKey = "${extractedOrderId ?: ""}|$targetEvaluationDistanceKm|$pickupDistKm|$storeName"
+        // منع التكرار لنفس الطلب
+        val deduplicationKey = "${extractedOrderId ?: ""}|$deliveryDistKm|$pickupDistKm|$storeName"
         val now = System.currentTimeMillis()
-        if (processedOrdersCache[deduplicationKey]?.let { now - it < 250 } == true) return
+        if (processedOrdersCache[deduplicationKey]?.let { now - it < 1200 } == true) return
 
         // =========================================================================
-        // القواعد الصارمة والقطعية للموافقة على الطلب:
-        // 1. مسافة العميل يجب أن تكون <= الحد الأقصى لمسافة العميل (مثلاً 3.0 كم)
-        // 2. مسافة المطعم يجب أن تكون <= الحد الأقصى لمسافة المطعم (مثلاً 1.5 كم)
-        // (تم استبعاد السعر تماماً من معايير القبول أو الرفض: الاعتماد حصرياً على المسافات الجغرافية)
+        // القواعد الصارمة والقطعية للموافقة على الطلب (Fail-Closed):
+        // 1. يجب أن تكون مسافة العميل معروفة فعلياً و <= الحد الأقصى لمسافة العميل
+        // 2. إذا توفرت مسافة المطعم يجب أن تكون <= الحد الأقصى لمسافة المطعم
+        // 3. ممنوع منعاً باتاً أي قبول إذا كانت المسافة مجهولة أو غير مقروءة
         // =========================================================================
-        val isDeliveryWithinLimit = when {
-            deliveryDistKm != null -> deliveryDistKm <= maxAllowedDelivery
-            allDists.isNotEmpty() -> allDists.any { it <= maxAllowedDelivery }
-            else -> true
+        val isDeliveryWithinLimit = deliveryDistKm != null && deliveryDistKm <= maxAllowedDelivery
+        val isPickupWithinLimit = if (pickupDistKm != null) {
+            pickupDistKm <= maxAllowedPickup
+        } else {
+            !isDualLayoutCard
         }
 
-        val isPickupWithinLimit = when {
-            pickupDistKm != null -> pickupDistKm <= maxAllowedPickup
-            allDists.size >= 2 -> allDists.minOrNull()?.let { it <= maxAllowedPickup } ?: true
-            else -> true
-        }
-
-        // استبعاد السعر تماماً: القرار يعتمد فقط على المسافات الجغرافية
         val isOrderMatching = isDeliveryWithinLimit && isPickupWithinLimit
 
         val lowerPkg = packageName.lowercase()
@@ -375,18 +455,13 @@ class LocateGoAccessibilityService : AccessibilityService() {
         }
 
         if (isOrderMatching) {
-            val targetNode = scanResult.acceptButtonNode
-            val swipeSuccess = if (targetNode != null) {
-                performInstantAccept(targetNode)
-            } else {
-                executeFallbackAccept(root)
-            }
+            val swipeSuccess = performInstantAccept(targetAcceptNode)
 
             processedOrdersCache[deduplicationKey] = now
 
             Log.i(
                 "LocateGoService",
-                "⚡⚡ ZERO-DELAY AUTO-ACCEPT SUCCESS! [Triggered=$swipeSuccess] App='$resolvedAppName' Store='$storeName' | Pickup: ${pickupDistKm ?: "N/A"} km (limit $maxAllowedPickup) | Delivery: ${deliveryDistKm ?: targetEvaluationDistanceKm} km (limit $maxAllowedDelivery)"
+                "⚡⚡ STRICT AUTO-ACCEPT SUCCESS! [Triggered=$swipeSuccess] App='$resolvedAppName' Store='$storeName' | Pickup: ${pickupDistKm ?: "N/A"} km (limit $maxAllowedPickup) | Delivery: $deliveryDistKm km (limit $maxAllowedDelivery)"
             )
 
             notifyDriverAcceptedAsync()
@@ -408,12 +483,13 @@ class LocateGoAccessibilityService : AccessibilityService() {
         } else {
             processedOrdersCache[deduplicationKey] = now
             val rejectReason = when {
-                !isDeliveryWithinLimit -> "مسافة العميل (${deliveryDistKm ?: targetEvaluationDistanceKm} كم) تتجاوز الحد الأقصى ($maxAllowedDelivery كم)"
-                !isPickupWithinLimit -> "مسافة المطعم ($pickupDistKm كم) تتجاوز الحد الأقصى ($maxAllowedPickup كم)"
-                else -> "معطل أو خارج النطاق المحدد"
+                deliveryDistKm == null -> "لم تتوفر مسافة العميل بدقة — تم الرفض حفاظاً على النطاق"
+                !isDeliveryWithinLimit -> "مسافة العميل ($deliveryDistKm كم) تتجاوز الحد الأقصى ($maxAllowedDelivery كم)"
+                pickupDistKm != null && !isPickupWithinLimit -> "مسافة المطعم ($pickupDistKm كم) تتجاوز الحد الأقصى ($maxAllowedPickup كم)"
+                else -> "خارج النطاق الجغرافي المحدد"
             }
 
-            Log.w("LocateGoService", "🚫 ORDER SKIPPED: $rejectReason")
+            Log.w("LocateGoService", "🚫 STRICT ORDER REJECTED: $rejectReason")
             notifyDriverRejectedAsync()
 
             serviceScope.launch {
@@ -436,7 +512,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
     /**
      * مسح شجرة العناصر في دورة أحادية فائقة الخفة:
      * - رصد واصطياد شريط القبول بالسحب أو زر القبول المباشر فوراً (مع حظر أزرار الرفض Reject والإلغاء وأيقونات GPS).
-     * - استخراج نصوص المسافات والأسعار والمتاجر.
+     * - استخراج نصوص المسافات ومواقعها المكانية بدقة (كم + متر).
      */
     private fun fastSinglePassTraversal(node: AccessibilityNodeInfo?, result: FastScanResult, displayHeight: Int) {
         if (node == null) return
@@ -457,7 +533,6 @@ class LocateGoAccessibilityService : AccessibilityService() {
             val isAcceptKeyword = rawContent != null && ALL_ACCEPT_KEYWORDS.any { rawContent.contains(it, ignoreCase = true) }
 
             if (isAcceptId || isAcceptKeyword) {
-                // التأكد الصارم من عدم استهداف زر الرفض أو زر الخريطة أو أيقونة الموقع
                 val lowerStr = rawContent?.lowercase() ?: ""
                 val isBlacklisted = lowerStr.contains("reject") ||
                         lowerStr.contains("رفض") ||
@@ -477,37 +552,64 @@ class LocateGoAccessibilityService : AccessibilityService() {
                         viewId.contains("gps")
 
                 if (!isBlacklisted) {
+                    val b = Rect()
+                    node.getBoundsInScreen(b)
                     result.acceptButtonNode = node
+                    result.acceptButtonBounds = b
                 }
             }
         }
 
-        // 2. إضافة النص المؤهل وفحص المسافات المباشرة
-        if (rawContent != null && rawContent.length in 2..120) {
+        // 2. إضافة النص المؤهل وفحص التسميات والمسافات ومواقعها
+        if (rawContent != null && rawContent.length in 2..150) {
             val lowerStr = rawContent.lowercase()
+            val nodeBounds = Rect()
+            node.getBoundsInScreen(nodeBounds)
+
+            if (lowerStr.contains("موقعك") || lowerStr.contains("your location")) {
+                result.hasUserLabel = true
+                if (result.userLabelX == null && !nodeBounds.isEmpty) {
+                    result.userLabelX = nodeBounds.centerX().toFloat()
+                }
+            }
+            if (lowerStr.contains("المتجر") || lowerStr.contains("المطعم") || lowerStr.contains("متجر") || lowerStr.contains("مطعم") || lowerStr.contains("الاستلام") || lowerStr.contains("pickup") || lowerStr.contains("store")) {
+                result.hasStoreLabel = true
+                if (result.storeLabelX == null && !nodeBounds.isEmpty && (lowerStr == "المتجر" || lowerStr == "المطعم" || lowerStr == "store")) {
+                    result.storeLabelX = nodeBounds.centerX().toFloat()
+                }
+            }
+            if (lowerStr.contains("عميل") || lowerStr.contains("زبون") || lowerStr.contains("توصيل") || lowerStr.contains("وجهة") || lowerStr.contains("delivery") || lowerStr.contains("dropoff") || lowerStr.contains("customer")) {
+                result.hasCustomerLabel = true
+            }
+
             val isIgnored = IGNORED_NAV_TEXTS.any { lowerStr == it || lowerStr.startsWith("$it ") }
             if (!isIgnored) {
                 result.texts.add(rawContent)
 
-                // فحص سريع لنصوص المسافات أثناء المرور لتسريع التحليل
+                // استخراج المسافات من هذا العنصر مع حدود موقعه على الشاشة
+                extractDistancesFromSingleText(rawContent).forEach { km ->
+                    result.capturedDistances.add(CapturedDistance(km, rawContent, Rect(nodeBounds)))
+                }
+
+                // فحص المسافات المصحوبة بتسمية واضحة (مع دعم كلا الترتيبين عبر group(1) ?: group(2))
                 if (result.directDeliveryKm == null && (lowerStr.contains("عميل") || lowerStr.contains("توصيل") || lowerStr.contains("وجهة") || lowerStr.contains("delivery") || lowerStr.contains("dropoff"))) {
                     val m = deliveryDistancePattern.matcher(rawContent)
                     if (m.find()) {
-                        result.directDeliveryKm = m.group(1)?.replace(',', '.')?.toDoubleOrNull()
+                        result.directDeliveryKm = normalizeNumberString(m.group(1) ?: m.group(2))
                     }
                 }
 
                 if (result.directPickupKm == null && (lowerStr.contains("مطعم") || lowerStr.contains("متجر") || lowerStr.contains("استلام") || lowerStr.contains("pickup") || lowerStr.contains("store"))) {
                     val m = pickupDistancePattern.matcher(rawContent)
                     if (m.find()) {
-                        result.directPickupKm = m.group(1)?.replace(',', '.')?.toDoubleOrNull()
+                        result.directPickupKm = normalizeNumberString(m.group(1) ?: m.group(2))
                     }
                 }
 
                 if (result.directPayoutSar == null && (lowerStr.contains("ريال") || lowerStr.contains("ر.س") || lowerStr.contains("sar"))) {
                     val m = payoutPattern.matcher(rawContent)
                     if (m.find()) {
-                        result.directPayoutSar = m.group(1)?.replace(',', '.')?.toDoubleOrNull()
+                        result.directPayoutSar = normalizeNumberString(m.group(1))
                     }
                 }
             }
@@ -617,41 +719,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
             }
         }, null)
 
-        // فاصل النقرات المتتالية المخصصة (Repeated-tap interval)
-        if (cachedEnableCustomInterval) {
-            val tapDelay = cachedTapIntervalMs.coerceIn(5L, 300L)
-            serviceScope.launch {
-                delay(tapDelay)
-                try {
-                    node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                    node.parent?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                } catch (_: Exception) {}
-            }
-        }
-
-        // فحص تعزيزي بعد 120ms فقط: إذا كان زر أو شريط القبول ما زال ظاهراً (مثل تأخر استجابة واجهة التطبيق)، ننفذ نقرة وسحبة فورية ثانية
-        serviceScope.launch {
-            delay(120)
-            try {
-                val currentRoot = rootInActiveWindow
-                if (currentRoot != null) {
-                    val stillPresent = ALL_ACCEPT_KEYWORDS.any { kw ->
-                        currentRoot.findAccessibilityNodeInfosByText(kw).isNotEmpty()
-                    }
-                    if (stillPresent) {
-                        Log.i("LocateGoService", "⚡ Instant reinforce tap & swipe executed!")
-                        val reinforceBuilder = GestureDescription.Builder()
-                        reinforceBuilder.addStroke(GestureDescription.StrokeDescription(tapPath, 0L, 20L))
-                        if (endX > startX + 50f) {
-                            val fastLtr = Path().apply { moveTo(startX, cy); lineTo(endX, cy) }
-                            reinforceBuilder.addStroke(GestureDescription.StrokeDescription(fastLtr, 25L, 50L))
-                        }
-                        dispatchGesture(reinforceBuilder.build(), null, null)
-                    }
-                }
-            } catch (_: Exception) {}
-        }
-
+        // ملاحظة أمنية: تم إلغاء أي نقرات أو سحب مؤجل غير مشروط بالمسافة حتى لا يتم قبول طلب جديد بعيد يظهر بعد 120ms
         return dispatched
     }
 
@@ -699,20 +767,37 @@ class LocateGoAccessibilityService : AccessibilityService() {
         return false
     }
 
+    private fun normalizeNumberString(raw: String?): Double? {
+        if (raw.isNullOrBlank()) return null
+        val normalized = raw.map { ch ->
+            when (ch) {
+                in '\u0660'..'\u0669' -> '0' + (ch - '\u0660')
+                in '\u06F0'..'\u06F9' -> '0' + (ch - '\u06F0')
+                else -> ch
+            }
+        }.joinToString("").replace(',', '.')
+        return normalized.toDoubleOrNull()?.takeIf { it >= 0.0 }
+    }
+
+    private fun extractDistancesFromSingleText(item: String): List<Double> {
+        val result = mutableListOf<Double>()
+        val kmMatcher = kmRegexPattern.matcher(item)
+        while (kmMatcher.find()) {
+            normalizeNumberString(kmMatcher.group(1))?.let { result.add(it) }
+        }
+        val mMatcher = meterRegexPattern.matcher(item)
+        while (mMatcher.find()) {
+            normalizeNumberString(mMatcher.group(1))?.let { meters ->
+                result.add(kotlin.math.round((meters / 1000.0) * 100.0) / 100.0)
+            }
+        }
+        return result
+    }
+
     private fun extractAllDistancesFromTexts(texts: List<String>): List<Double> {
         val result = mutableListOf<Double>()
-        val kmPattern = Pattern.compile("([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)", Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE)
         for (item in texts) {
-            val m = kmPattern.matcher(item)
-            while (m.find()) {
-                val raw = m.group(1) ?: continue
-                val normalized = raw.map { ch ->
-                    if (ch in '\u0660'..'\u0669') ('0' + (ch - '\u0660')) else ch
-                }.joinToString("").replace(',', '.')
-                normalized.toDoubleOrNull()?.let {
-                    if (it >= 0.0) result.add(it)
-                }
-            }
+            result.addAll(extractDistancesFromSingleText(item))
         }
         return result
     }

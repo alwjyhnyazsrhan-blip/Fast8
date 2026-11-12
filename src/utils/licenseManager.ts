@@ -6,8 +6,7 @@
 import { getNativeBridge } from './nativeBridge';
 import { soundManager } from './audio';
 import { getVipDeviceId, isAuthorizedDevice } from './device';
-import { db, FIREBASE_RTDB_URL } from './firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { FIREBASE_RTDB_URL } from './firebase';
 
 export interface LicenseValidationResult {
   isValid: boolean;
@@ -96,19 +95,6 @@ export async function validateLicenseOnline(
       } catch {
         // الخادم غير متصل (الوضع المستقل نشط)
       }
-    }
-
-    // محاولة 3: فحص Cloud Firestore
-    if (!networkFetchSuccess && !codesList.length) {
-      try {
-        const snap = await getDocs(collection(db, 'activation_codes'));
-        if (!snap.empty) {
-          networkFetchSuccess = true;
-          snap.forEach((docSnap) => {
-            codesList.push({ id: docSnap.id, ...docSnap.data() });
-          });
-        }
-      } catch {}
     }
 
     // 🛡️ درع الحماية الأوفلاين: إذا كان هناك انقطاع شبكة أو السيرفر مغلق وكان الكود مفعلاً ومسجلاً محلياً وتاريخه سارٍ

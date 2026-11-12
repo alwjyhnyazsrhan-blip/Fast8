@@ -786,7 +786,7 @@ async function startServer() {
     // 1. مسافة العميل / الوجهة <= الحد الأقصى المحدد (الافتراضي: 3.0 كم)
     // 2. مسافة المتجر / المطعم <= حد مسافة المتجر المحدد (الافتراضي: 1.5 كم)
     const isDeliveryAcceptable = computedDistance <= maxAllowedDelivery;
-    const isPickupAcceptable = typeof pickupDistanceKm === "number" && pickupDistanceKm > 0
+    const isPickupAcceptable = typeof pickupDistanceKm === "number" && pickupDistanceKm >= 0
       ? pickupDistanceKm <= maxAllowedPickup
       : true;
     const isAccepted = deviceIsRunning && isDeliveryAcceptable && isPickupAcceptable;
