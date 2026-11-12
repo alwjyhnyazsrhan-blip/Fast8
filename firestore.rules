@@ -1,0 +1,82 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all unknown collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Test connection document for initial app boot check
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // VIP Activation and Subscription Codes
+    match /activation_codes/{codeId} {
+      allow get, list: if true;
+
+      allow create: if isValidId(codeId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().code is string && incoming().code.size() <= 64
+        && incoming().status in ['active', 'new', 'used', 'expired', 'revoked']
+        && incoming().planName is string && incoming().planName.size() <= 64
+        && incoming().durationDays is number
+        && incoming().expiryDate is string && incoming().expiryDate.size() <= 64;
+
+      allow update: if isValidId(codeId)
+        && incoming().id == existing().id
+        && incoming().code == existing().code
+        && incoming().status in ['active', 'new', 'used', 'expired', 'revoked']
+        && incoming().durationDays is number
+        && incoming().expiryDate is string && incoming().expiryDate.size() <= 64;
+
+      allow delete: if isValidId(codeId);
+    }
+
+    // Courier Orders
+    match /orders/{orderId} {
+      allow get, list: if true;
+
+      allow create: if isValidId(orderId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().deviceId is string && incoming().deviceId.size() <= 64
+        && incoming().appName is string && incoming().appName.size() <= 64
+        && incoming().storeName is string && incoming().storeName.size() <= 128
+        && incoming().distanceKm is number
+        && incoming().payoutSar is number
+        && incoming().status in ['accepted', 'rejected'];
+
+      allow update: if isValidId(orderId)
+        && incoming().id == existing().id
+        && incoming().status in ['accepted', 'rejected'];
+
+      allow delete: if isValidId(orderId);
+    }
+
+    // Device Settings & Live Tracking
+    match /devices/{deviceId} {
+      allow get, list: if isValidId(deviceId);
+
+      allow create, update: if isValidId(deviceId)
+        && incoming().deviceId is string && incoming().deviceId.size() <= 64
+        && incoming().isRunning is bool
+        && incoming().maxDistanceKm is number;
+
+      allow delete: if isValidId(deviceId);
+    }
+  }
+}

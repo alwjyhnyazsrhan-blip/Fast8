@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 1. الشبكة والإنترنت للاتصال فائق السرعة بسيرفر Render المباشر -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- 2. أذونات الموقع الجغرافي الدقيق لتصفية الطلبات في نطاق 2 كم -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+
+    <!-- 3. خدمات الخلفية الدائمة (Foreground Services) لضمان عدم إغلاق الأداة بواسطة النظام -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+
+    <!-- 4. النافذة العائمة فوق شاشة تطبيقات التوصيل (Overlay Pill) -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- 5. التنبيهات الحسية والصوتية للمندوب فور قبول الطلب -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- 6. إعادة تشغيل الخدمة تلقائياً عند إقلاع الهاتف -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@android:drawable/ic_dialog_map"
+        android:label="@string/app_name"
+        android:roundIcon="@android:drawable/ic_dialog_map"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.LocateGoDriver"
+        android:usesCleartextTraffic="true"
+        tools:targetApi="34">
+
+        <!-- واجهة التحكم الرئيسية لتطبيق Locate Go -->
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.LocateGoDriver">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- خدمة إمكانية الوصول لقراءة شاشة تطبيقات التوصيل والنقر التلقائي -->
+        <service
+            android:name=".LocateGoAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/accessibility_service_config" />
+        </service>
+
+        <!-- خدمة التتبع الجغرافي المستمر في الخلفية لحساب مسافة الـ 2 كم -->
+        <service
+            android:name=".LocationTrackingService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="location" />
+
+        <!-- خدمة النافذة العائمة فوق التطبيقات -->
+        <service
+            android:name=".FloatingOverlayService"
+            android:enabled="true"
+            android:exported="false" />
+
+        <!-- مستقبل إقلاع الهاتف للتشغيل الذاتي -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

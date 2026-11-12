@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "ActivationCode": {
+      "title": "ActivationCode",
+      "description": "Subscription and license code for couriers and drivers",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["active", "new", "used", "expired", "revoked"] },
+        "planName": { "type": "string", "maxLength": 64 },
+        "duration": { "type": "string", "maxLength": 32 },
+        "durationDays": { "type": "number" },
+        "targetDeviceId": { "type": "string", "maxLength": 64 },
+        "usedByDeviceId": { "type": "string", "maxLength": 64 },
+        "driverName": { "type": "string", "maxLength": 128 },
+        "driverPhone": { "type": "string", "maxLength": 32 },
+        "notes": { "type": "string", "maxLength": 500 },
+        "startMode": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "activatedAt": { "type": "string", "maxLength": 64 },
+        "expiryDate": { "type": "string", "maxLength": 64 },
+        "lastVerifiedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "code", "status", "planName", "durationDays", "createdAt", "expiryDate"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Evaluated food delivery or courier order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "deviceId": { "type": "string", "maxLength": 64 },
+        "appName": { "type": "string", "maxLength": 64 },
+        "storeName": { "type": "string", "maxLength": 128 },
+        "customerDistrict": { "type": "string", "maxLength": 128 },
+        "distanceKm": { "type": "number" },
+        "pickupDistanceKm": { "type": "number" },
+        "deliveryDistanceKm": { "type": "number" },
+        "payoutSar": { "type": "number" },
+        "detectedAt": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["accepted", "rejected"] },
+        "rejectionReason": { "type": "string", "maxLength": 256 },
+        "autoAccepted": { "type": "boolean" }
+      },
+      "required": ["id", "deviceId", "appName", "storeName", "distanceKm", "payoutSar", "status"]
+    },
+    "Device": {
+      "title": "Device",
+      "description": "Registered driver device configuration and status",
+      "type": "object",
+      "properties": {
+        "deviceId": { "type": "string", "maxLength": 64 },
+        "isRunning": { "type": "boolean" },
+        "maxDistanceKm": { "type": "number" },
+        "maxPickupDistanceKm": { "type": "number" },
+        "autoAccept": { "type": "boolean" },
+        "soundAlerts": { "type": "boolean" },
+        "minPayoutSar": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["deviceId", "isRunning", "maxDistanceKm", "autoAccept"]
+    }
+  },
+  "firestore": {
+    "/activation_codes/{codeId}": {
+      "schema": { "$ref": "#/entities/ActivationCode" },
+      "description": "Collection of VIP subscription and license codes"
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Collection of incoming courier orders evaluated by Locate Go"
+    },
+    "/devices/{deviceId}": {
+      "schema": { "$ref": "#/entities/Device" },
+      "description": "Registered driver hardware profiles and thresholds"
+    }
+  }
+}

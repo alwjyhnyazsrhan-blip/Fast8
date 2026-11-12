@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VIP ACCESS - واجهة القفل</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Exo+2:wght@400;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --green: #00e5a0;
+            --green-dark: #00c27e;
+            --gold: #f5c842;
+            --gold-dark: #c49a1a;
+            --bg: #000000;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        html, body { width: 100%; height: 100%; background: var(--bg); font-family: 'Cairo', sans-serif; color: #fff; overflow: hidden; }
+
+        .preview-wrapper { display: flex; align-items: center; justify-content: center; min-height: 100vh; background: radial-gradient(ellipse at center, #0d0d1a 0%, #000 70%); position: relative; }
+
+        .phone-frame { width: 100%; min-height: 100svh; background: #000; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+
+        .app-screen { flex: 1; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 28px 40px; position: relative; min-height: 100%; }
+
+        .app-screen::before { content: ''; position: absolute; top: -100px; left: -100px; width: 500px; height: 500px; background: radial-gradient(ellipse, rgba(0,200,150,0.05) 0%, transparent 70%); pointer-events: none; }
+        .app-screen::after { content: ''; position: absolute; bottom: -80px; right: -80px; width: 400px; height: 400px; background: radial-gradient(ellipse, rgba(80,60,255,0.06) 0%, transparent 70%); pointer-events: none; }
+
+        .crown-wrap { margin-bottom: 12px; position: relative; z-index: 2; }
+        .crown-emoji { font-size: 68px; display: block; text-align: center; filter: drop-shadow(0 0 20px rgba(245,200,66,0.7)) drop-shadow(0 0 40px rgba(245,200,66,0.3)); animation: crownPulse 3s ease-in-out infinite; }
+        @keyframes crownPulse { 0%, 100% { filter: drop-shadow(0 0 20px rgba(245,200,66,0.7)) drop-shadow(0 0 40px rgba(245,200,66,0.3)); transform: scale(1); } 50% { filter: drop-shadow(0 0 30px rgba(245,200,66,0.9)) drop-shadow(0 0 60px rgba(245,200,66,0.5)); transform: scale(1.05); } }
+
+        .subtitle-ar { font-size: 13px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 6px; font-weight: 500; letter-spacing: 0.5px; z-index: 2; position: relative; }
+        
+        .vip-title { font-family: 'Exo 2', sans-serif; font-size: 36px; font-weight: 900; text-align: center; color: #fff; letter-spacing: 6px; text-transform: uppercase; margin-bottom: 36px; z-index: 2; position: relative; text-shadow: 0 0 30px rgba(255,255,255,0.3); }
+        .vip-title span { background: linear-gradient(135deg, #fff 30%, #aaa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+        .input-wrapper { width: 100%; position: relative; margin-bottom: 16px; z-index: 2; }
+        .key-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; z-index: 3; pointer-events: none; }
+        .code-input { width: 100%; padding: 16px 18px 16px 46px; background: rgba(255,255,200,0.04); border: 1.5px solid; border-image: linear-gradient(135deg, rgba(80,120,255,0.5), rgba(200,80,255,0.3)) 1; border-radius: 14px; color: #fff; font-family: 'Cairo', sans-serif; font-size: 15px; font-weight: 600; text-align: right; outline: none; transition: all 0.3s; letter-spacing: 1px; direction: rtl; }
+        .code-input::placeholder { color: rgba(255,255,255,0.3); font-weight: 400; font-size: 13px; letter-spacing: 0; }
+        .code-input:focus { background: rgba(255,255,255,0.06); box-shadow: 0 0 0 1px rgba(80,120,255,0.4), 0 0 20px rgba(80,120,255,0.1); }
+        .code-input.error { box-shadow: 0 0 0 1px rgba(255,71,87,0.5), 0 0 20px rgba(255,71,87,0.1) !important; border-image: linear-gradient(135deg, rgba(255,71,87,0.6), rgba(255,100,100,0.4)) 1 !important; animation: shake 0.4s ease; }
+        .code-input.success { box-shadow: 0 0 0 1px rgba(0,200,150,0.5), 0 0 20px rgba(0,200,150,0.15) !important; border-image: linear-gradient(135deg, rgba(0,200,150,0.6), rgba(0,220,180,0.4)) 1 !important; }
+
+        @keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+
+        .input-msg { font-size: 11px; text-align: center; margin-top: 6px; height: 16px; transition: all 0.2s; }
+        .input-msg.error { color: #ff4757; }
+        .input-msg.success { color: #00e5a0; }
+
+        .btn-enter { width: 100%; padding: 16px; background: linear-gradient(135deg, var(--green), var(--green-dark)); border: none; border-radius: 14px; color: #000; font-family: 'Cairo', sans-serif; font-size: 16px; font-weight: 800; cursor: pointer; margin-bottom: 14px; transition: all 0.3s; box-shadow: 0 8px 30px rgba(0,200,150,0.3); z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; letter-spacing: 0.5px; }
+        .btn-enter:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(0,200,150,0.45); }
+        .btn-enter:active { transform: translateY(0); box-shadow: 0 4px 16px rgba(0,200,150,0.3); }
+        .btn-enter:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
+        .btn-enter .spinner-sm { width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.3); border-top-color: #000; border-radius: 50%; animation: spin 0.7s linear infinite; }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .btn-admin { width: 100%; padding: 13px; background: transparent; border: 1.5px solid; border-image: linear-gradient(135deg, rgba(80,120,255,0.5), rgba(100,160,255,0.3)) 1; border-radius: 14px; color: rgba(255,255,255,0.75); font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; margin-bottom: 14px; transition: all 0.3s; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-admin:hover { background: rgba(80,120,255,0.08); color: #fff; border-image: linear-gradient(135deg, rgba(80,120,255,0.7), rgba(100,160,255,0.5)) 1; }
+
+        .btn-purchase { width: 100%; padding: 13px; background: transparent; border: 1.5px solid; border-image: linear-gradient(135deg, rgba(245,200,66,0.5), rgba(255,180,30,0.3)) 1; border-radius: 14px; color: rgba(245,200,66,0.9); font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.3s; z-index: 2; position: relative; display: flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; }
+        .btn-purchase:hover { background: rgba(245,200,66,0.08); color: var(--gold); border-image: linear-gradient(135deg, rgba(245,200,66,0.7), rgba(255,180,30,0.5)) 1; }
+
+        .success-screen { position: absolute; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 28px; opacity: 0; pointer-events: none; transition: opacity 0.4s; z-index: 10; }
+        .success-screen.active { opacity: 1; pointer-events: all; }
+        .success-check { font-size: 80px; margin-bottom: 20px; animation: bounceIn 0.6s ease; }
+        @keyframes bounceIn { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        .success-title { font-size: 22px; font-weight: 800; color: var(--green); margin-bottom: 8px; text-shadow: 0 0 15px rgba(0,229,160,0.3); text-align: center; }
+        .success-sub { font-size: 14px; color: rgba(255,255,255,0.5); text-align: center; margin-bottom: 32px; }
+        .btn-back-to-lock { padding: 12px 28px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 12px; color: rgba(255,255,255,0.7); font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+
+        .particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; z-index: 0; }
+        .particle { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--gold); opacity: 0; animation: floatUp var(--dur) ease-in infinite var(--delay); }
+        @keyframes floatUp { 0% { transform: translateY(100px); opacity: 0; } 20% { opacity: 0.6; } 100% { transform: translateY(-200px); opacity: 0; } }
+
+        .ripple-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(0,200,150,0.3); animation: rippleExpand 2.5s ease-out infinite; pointer-events: none; }
+        @keyframes rippleExpand { 0% { width: 0; height: 0; opacity: 0.6; transform: translate(-50%,-50%) scale(0); } 100% { width: 300px; height: 300px; opacity: 0; transform: translate(-50%,-50%) scale(1); } }
+
+        /* لودينج البداية لعدم ظهور الواجهة قبل الفحص */
+        #preloader { position: fixed; inset: 0; background: #000; z-index: 999; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+<div id="preloader"><div class="spinner-sm" style="width:40px;height:40px;border:3px solid #333;border-top-color:var(--green);border-radius:50%;animation:spin 1s linear infinite;"></div></div>
+
+<div class="preview-wrapper">
+    <div class="phone-frame">
+        <div class="app-screen" id="mainScreen">
+
+            <div class="particles" id="particles"></div>
+            <div class="ripple-ring" style="left:50%;top:25%;animation-delay:0s;"></div>
+            <div class="ripple-ring" style="left:50%;top:25%;animation-delay:0.8s;"></div>
+            <div class="ripple-ring" style="left:50%;top:25%;animation-delay:1.6s;"></div>
+
+            <div class="crown-wrap"><span class="crown-emoji">👑</span></div>
+            <p class="subtitle-ar">الوصول المميز</p>
+            <div class="vip-title"><span>VIP ACCESS</span></div>
+
+            <div class="input-wrapper">
+                <span class="key-icon">🔑</span>
+                <input type="text" class="code-input" id="codeInput" placeholder="أدخل مفتاح التفعيل هنا" autocomplete="off" maxlength="20" onkeydown="handleKeyDown(event)" oninput="clearError()">
+            </div>
+            <div class="input-msg" id="inputMsg"></div>
+
+            <button class="btn-enter" id="enterBtn" onclick="handleLogin()">
+                <span id="enterBtnText">تسجيل الدخول</span>
+            </button>
+
+            <button class="btn-admin" onclick="handleDeviceCopy()">
+                <span>⚙️</span> نسخ المعرف
+            </button>
+
+            <button class="btn-purchase" onclick="handlePurchase()">💎 شراء كود VIP</button>
+
+        </div>
+
+        <div class="success-screen" id="successScreen">
+            <div class="success-check">✅</div>
+            <div class="success-title">مرحباً بك في VIP!</div>
+            <div class="success-sub">تم التحقق من كودك بنجاح<br>سيتم فتح التطبيق خلال ثوانٍ...</div>
+        </div>
+    </div>
+</div>
+
+<script src="/data-bridge.js"></script>
+<script>
+const TABLE = 'activation_codes';
+
+// عند تشغيل الصفحة: فحص إذا كان هناك كود محفوظ وصالح
+window.onload = async function() {
+    createParticles();
+    const noticeRaw = localStorage.getItem('vip_termination_notice');
+    if (noticeRaw) {
+        try {
+            const parsed = JSON.parse(noticeRaw);
+            if (parsed && parsed.message) {
+                setError('🚨 ' + parsed.message);
+            }
+        } catch(e) {}
+    } else {
+        const savedCode = localStorage.getItem('vip_active_code');
+        if (savedCode) {
+            document.getElementById('codeInput').value = savedCode;
+            await handleLogin(true); // تسجيل دخول صامت
+        } else {
+            try {
+                if (window.LocateGoNative && typeof window.LocateGoNative.killAllServices === 'function') {
+                    window.LocateGoNative.killAllServices();
+                }
+            } catch(e) {}
+        }
+    }
+    document.getElementById('preloader').style.display = 'none';
+};
+
+function createParticles() {
+    const container = document.getElementById('particles');
+    if (!container) return;
+    const colors = ['#f5c842', '#00e5a0', '#ffffff', '#8080ff'];
+    for (let i = 0; i < 18; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        p.style.cssText = `left: ${Math.random() * 100}%; bottom: 0; --dur: ${3 + Math.random() * 4}s; --delay: ${Math.random() * 5}s; background: ${colors[Math.floor(Math.random() * colors.length)]}; width: ${1 + Math.random() * 2}px; height: ${1 + Math.random() * 2}px;`;
+        container.appendChild(p);
+    }
+}
+
+function clearError() {
+    const inp = document.getElementById('codeInput');
+    const msg = document.getElementById('inputMsg');
+    inp.classList.remove('error', 'success');
+    msg.className = 'input-msg'; msg.textContent = '';
+}
+
+function setError(text) {
+    const inp = document.getElementById('codeInput');
+    const msg = document.getElementById('inputMsg');
+    inp.classList.remove('success'); inp.classList.add('error');
+    msg.className = 'input-msg error'; msg.textContent = text;
+}
+
+function handleKeyDown(e) { if (e.key === 'Enter') handleLogin(); }
+
+function getDeviceId() {
+    return (navigator.userAgent.length + btoa(navigator.hardwareConcurrency || '8')).slice(0, 10);
+}
+
+function handlePurchase() {
+    const webUrl = `https://t.me/Wsxderfpo`;
+    window.location.assign(webUrl);
+}
+
+function handleDeviceCopy() {
+    const deviceId = getDeviceId();
+    const textArea = document.createElement("textarea");
+    textArea.value = deviceId;
+    document.body.appendChild(textArea);
+    textArea.select();
+    document.execCommand('copy');
+    alert("✅ تم نسخ المعرف:\n" + deviceId);
+    document.body.removeChild(textArea);
+}
+
+async function handleLogin(isAuto = false) {
+    const inp = document.getElementById('codeInput');
+    const raw = inp.value.trim().toUpperCase();
+    if (!raw) { if(!isAuto) setError('الرجاء إدخل كود التفعيل'); return; }
+
+    const btn = document.getElementById('enterBtn');
+    const btnText = document.getElementById('enterBtnText');
+    
+    if(!isAuto && btn && btnText) {
+        btn.disabled = true;
+        btnText.innerHTML = '<div class="spinner-sm"></div>';
+    }
+
+    try {
+        const res = await fetch(`tables/${TABLE}`);
+        const data = await res.json();
+        const codes = data.data || [];
+        const match = codes.find(c => (c.code || '').toUpperCase() === raw);
+        const currentDevice = getDeviceId();
+
+        if (!match) {
+            if(!isAuto) { setError('❌ الكود غير صحيح'); btn.disabled = false; btnText.textContent = 'تسجيل الدخول'; }
+            return;
+        }
+
+        // فحص مدة الصلاحية الزمنية
+        if (match.expiry_date && new Date(match.expiry_date) < new Date()) {
+            localStorage.removeItem('vip_active_code');
+            if(!isAuto) { setError('⏰ انتهى اشتراكك'); btn.disabled = false; btnText.textContent = 'تسجيل الدخول'; }
+            return;
+        }
+
+        // فحص الجهاز
+        if (match.used_by && match.used_by !== "" && match.used_by !== currentDevice) {
+            if(!isAuto) { setError('⚠️ مرتبط بجهاز آخر'); btn.disabled = false; btnText.textContent = 'تسجيل الدخول'; }
+            return;
+        }
+
+        // حفظ الكود للبقاء مسجلاً
+        localStorage.setItem('vip_active_code', raw);
+        try {
+            if (window.LocateGoNative && typeof window.LocateGoNative.setVipLicensed === 'function') {
+                window.LocateGoNative.setVipLicensed(true);
+            }
+            window.location.href = "vip://unlock";
+        } catch(e) {}
+
+        if (match.used_by !== currentDevice) {
+            await fetch(`tables/${TABLE}/${match.id}`, {
+                method: 'PATCH',
+                body: JSON.stringify({ status: 'used', used_count: (match.used_count || 0) + 1, used_by: currentDevice })
+            });
+        }
+
+        document.getElementById('successScreen').classList.add('active');
+        setTimeout(() => {
+            // توجيه للتطبيق
+            window.location.href = "/";
+        }, 1500);
+
+    } catch (e) {
+        if(!isAuto) { setError('خطأ في الشبكة'); btn.disabled = false; btnText.textContent = 'تسجيل الدخول'; }
+    }
+}
+</script>
+</body>
+</html>

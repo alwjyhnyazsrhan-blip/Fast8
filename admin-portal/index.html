@@ -1,0 +1,1684 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Locate Go - لوحة تحكم الاشتراكات وقاعدة بيانات فايربيس أوفلاين</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Cairo & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body {
+      font-family: 'Cairo', sans-serif;
+    }
+    .font-mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.25; transform: scale(1); }
+      50% { opacity: 0.55; transform: scale(1.05); }
+    }
+    .ambient-glow {
+      animation: pulseGlow 7s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="bg-[#080c18] text-slate-100 min-h-screen flex flex-col selection:bg-emerald-500 selection:text-black">
+
+  <!-- Glow Backgrounds -->
+  <div class="fixed top-0 right-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none ambient-glow"></div>
+  <div class="fixed bottom-0 left-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none ambient-glow" style="animation-delay: -3.5s;"></div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-[#1e293b]/95 border border-cyan-400 text-white px-6 py-2.5 rounded-full shadow-[0_0_30px_rgba(6,182,212,0.4)] flex items-center gap-2 text-xs font-bold transition-all duration-300 opacity-0 pointer-events-none translate-y-[-20px]">
+    <i data-lucide="sparkles" class="w-4 h-4 text-cyan-400" id="toast-icon"></i>
+    <span id="toast-text">تمت العملية بنجاح</span>
+  </div>
+
+  <!-- HEADER -->
+  <header class="sticky top-0 z-40 bg-[#0c1222]/95 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 sm:px-8 shadow-lg">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] border border-emerald-300">
+          <i data-lucide="key" class="w-6 h-6 text-slate-950 stroke-[2.5]"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-extrabold text-white tracking-tight">Locate Go</h1>
+            <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-emerald-950 text-emerald-300 border border-emerald-500/30 flex items-center gap-1">
+              <i data-lucide="database" class="w-3 h-3 text-emerald-400"></i>
+              <span>قاعدة بيانات Firebase السحابية</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">لوحة تحكم وتوليد أكواد الاشتراكات المتصلة مباشرة بـ appprotector-79e9c</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 flex-wrap">
+        <!-- Pending Offline Queue Badge -->
+        <button id="sync-queue-badge" onclick="syncAllData()" class="hidden items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-950/80 border border-amber-500/50 text-amber-300 hover:text-white text-xs font-bold transition-all cursor-pointer animate-pulse" title="انقر لرفع التعديلات السحابية فوراً">
+          <i data-lucide="cloud-upload" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span id="sync-queue-text">0 بالانتظار</span>
+        </button>
+
+        <!-- Connection Status & Config Button -->
+        <button onclick="toggleServerConfigModal()" id="server-status-btn" class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 hover:border-cyan-500/50 text-slate-300 hover:text-white text-xs font-semibold cursor-pointer transition-all shadow-sm">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]" id="server-status-dot"></span>
+          <span id="server-status-label" class="font-bold">جاري الفحص...</span>
+          <i data-lucide="settings" class="w-3.5 h-3.5 text-slate-400"></i>
+        </button>
+
+        <!-- Create Code Button -->
+        <button onclick="openCreateModal()" class="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer">
+          <i data-lucide="plus" class="w-4 h-4 stroke-[3]"></i>
+          <span>إنشاء كود جديد</span>
+        </button>
+
+        <!-- Sync Button -->
+        <button onclick="syncAllData()" title="مزامنة فورية مع قاعدة بيانات فايربيس" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white text-xs font-bold transition-all cursor-pointer">
+          <i data-lucide="refresh-cw" class="w-4 h-4 text-cyan-400" id="refresh-icon"></i>
+          <span class="hidden sm:inline">مزامنة</span>
+        </button>
+
+        <!-- Delete All Button -->
+        <button onclick="deleteAllCodes()" title="حذف جميع الأكواد نهائياً من فايربيس والسيرفر" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/70 hover:bg-rose-900 border border-rose-700/60 hover:border-rose-500 text-rose-300 hover:text-rose-100 text-xs font-bold transition-all cursor-pointer shadow-sm active:scale-95">
+          <i data-lucide="trash-2" class="w-4 h-4 text-rose-400"></i>
+          <span>حذف الكل</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- OFFLINE / LIVE SYNC BANNER -->
+  <div id="offline-alert-banner" class="hidden bg-gradient-to-r from-amber-950/80 via-slate-900 to-amber-950/80 border-b border-amber-500/40 px-4 py-2.5 sm:px-8 text-xs text-amber-200">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <i data-lucide="wifi-off" class="w-4 h-4 text-amber-400 shrink-0"></i>
+        <span><b>وضع قاعدة بيانات فايربيس أوفلاين نشط:</b> يمكنك إدارة، توليد، وتعديل الأكواد بحرية دون إنترنت؛ يتم حفظها محلياً وستُرفع تلقائياً لفايربيس فور توفر الاتصال.</span>
+      </div>
+      <button onclick="syncAllData()" class="px-3 py-1 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold shrink-0 text-[11px] transition-all">
+        مزامنة سحابية الآن
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTAINER -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 py-6 sm:px-8 space-y-5">
+
+    <!-- STATS CARDS -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="bg-[#121a32]/90 rounded-2xl p-4 border border-indigo-500/20 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-slate-400 font-bold">إجمالي الأكواد</p>
+          <p class="text-2xl font-black text-white font-mono mt-1" id="stat-total">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+          <i data-lucide="key" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-[#121a32]/90 rounded-2xl p-4 border border-emerald-500/20 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-emerald-400 font-bold">الأكواد الصالحة والنشطة</p>
+          <p class="text-2xl font-black text-emerald-300 font-mono mt-1" id="stat-active">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-[#121a32]/90 rounded-2xl p-4 border border-cyan-500/20 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-cyan-400 font-bold">الأجهزة المرتبطة</p>
+          <p class="text-2xl font-black text-cyan-300 font-mono mt-1" id="stat-used">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+          <i data-lucide="smartphone" class="w-5 h-5"></i>
+        </div>
+      </div>
+
+      <div class="bg-[#121a32]/90 rounded-2xl p-4 border border-rose-500/20 shadow-sm flex items-center justify-between">
+        <div>
+          <p class="text-xs text-rose-400 font-bold">المنتهية أو المعطلة</p>
+          <p class="text-2xl font-black text-rose-300 font-mono mt-1" id="stat-expired">0</p>
+        </div>
+        <div class="w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400">
+          <i data-lucide="shield-alert" class="w-5 h-5"></i>
+        </div>
+      </div>
+    </div>
+
+    <!-- BANNER: LAST CREATED CODE -->
+    <div id="new-code-banner" class="hidden bg-gradient-to-r from-emerald-950/80 via-teal-950/70 to-cyan-950/80 border-2 border-emerald-400 rounded-2xl p-4 shadow-[0_0_30px_rgba(16,185,129,0.25)] flex flex-col md:flex-row md:items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-emerald-300">
+          <i data-lucide="check" class="w-6 h-6 stroke-[3]"></i>
+        </div>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-xs font-bold text-emerald-300">تم إنشاء كود جديد بنجاح:</span>
+            <span class="font-mono text-base font-black text-white bg-slate-950 px-2.5 py-0.5 rounded-lg border border-emerald-500/50" id="banner-code-str"></span>
+            <span id="banner-code-sync-badge" class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-400/40 font-bold">محفوظ في فايربيس</span>
+          </div>
+          <p class="text-xs text-slate-300 mt-0.5" id="banner-code-desc"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 self-end md:self-center">
+        <button id="banner-copy-btn" class="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all">
+          <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+          <span>نسخ الكود</span>
+        </button>
+        <button id="banner-wa-btn" class="px-3.5 py-1.5 rounded-xl bg-emerald-950 border border-emerald-500/50 text-emerald-300 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all">
+          <i data-lucide="send" class="w-3.5 h-3.5"></i>
+          <span>إرسال واتساب</span>
+        </button>
+        <button onclick="document.getElementById('new-code-banner').classList.add('hidden')" class="w-7 h-7 rounded-lg bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- SEARCH & FILTER TOOLBAR -->
+    <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+      <div class="relative flex-1">
+        <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2"></i>
+        <input type="text" id="search-input" oninput="renderCodesList()" placeholder="البحث برمز الكود، معرف الجهاز، اسم المندوب، أو رقم الهاتف..." class="w-full h-10 pr-10 pl-4 rounded-xl bg-[#121a32]/90 border border-slate-700/80 text-white text-xs placeholder:text-slate-500 focus:outline-none focus:border-cyan-400 transition-all" />
+      </div>
+
+      <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1 bg-[#121a32] p-1 rounded-xl border border-slate-800 overflow-x-auto" id="filter-group">
+          <button onclick="setFilter('all')" data-filter="all" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-cyan-500 text-slate-950">الكل</button>
+          <button onclick="setFilter('active')" data-filter="active" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">نشط</button>
+          <button onclick="setFilter('used')" data-filter="used" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">مستخدم</button>
+          <button onclick="setFilter('expired')" data-filter="expired" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">منتهي</button>
+          <button onclick="setFilter('revoked')" data-filter="revoked" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white">معطل</button>
+          <button onclick="setFilter('pending_sync')" data-filter="pending_sync" class="filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-amber-400 hover:text-white">بانتظار المزامنة</button>
+        </div>
+
+        <button onclick="deleteAllCodes()" title="حذف جميع الأكواد نهائياً" class="shrink-0 flex items-center gap-1 px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 border border-rose-800/60 text-rose-300 hover:text-white text-xs font-bold transition-all cursor-pointer">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5 text-rose-400"></i>
+          <span class="hidden md:inline">حذف الكل</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- CODES LIST -->
+    <div id="codes-container" class="space-y-2.5">
+      <!-- Injected dynamically -->
+    </div>
+
+    <!-- DETECTED DEVICES QUICK BAR -->
+    <div class="bg-[#121a32]/60 rounded-2xl p-4 border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+      <div class="flex items-center gap-2 text-slate-400 text-xs">
+        <i data-lucide="smartphone" class="w-4 h-4 text-cyan-400"></i>
+        <span class="font-bold text-slate-200">الأجهزة المسجلة (انقر لإنشاء كود سريع):</span>
+      </div>
+      <div id="active-devices-list" class="flex items-center gap-1.5 overflow-x-auto max-w-full pb-1">
+        <!-- Injected dynamically -->
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: CREATE CODE -->
+  <div id="create-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 bg-black/80 backdrop-blur-md">
+    <div class="w-full max-w-md bg-[#11192e] border border-cyan-500/40 rounded-3xl p-5 shadow-2xl text-white relative">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <div class="flex items-center gap-2">
+          <i data-lucide="key" class="w-5 h-5 text-cyan-400"></i>
+          <h3 class="text-base font-extrabold text-white">إنشاء كود اشتراك جديد</h3>
+        </div>
+        <button onclick="closeCreateModal()" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <form id="create-code-form" onsubmit="handleCreateSubmit(event)" class="space-y-3.5 pt-3 text-xs">
+        <!-- Code Input -->
+        <div>
+          <label class="block text-slate-300 font-bold mb-1">رمز الكود (Code)</label>
+          <div class="flex items-center gap-2">
+            <input type="text" id="form-code" required placeholder="مثال: VIP-ABCD-1234" class="flex-1 h-10 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 font-mono font-bold text-white text-sm focus:outline-none focus:border-cyan-400 tracking-wider" />
+            <button type="button" onclick="randomizeFormCode()" class="h-10 px-3 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 font-bold text-cyan-300 cursor-pointer">توليد عشوائي</button>
+          </div>
+        </div>
+
+        <!-- Duration Preset Pills & Custom Days Selector -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="block text-slate-300 font-bold">مدة الاشتراك (بالأيام أو الباقات)</label>
+            <span id="duration-badge-preview" class="text-[11px] px-2.5 py-0.5 rounded-lg bg-emerald-950/90 text-emerald-300 border border-emerald-500/40 font-mono font-bold">شهر (30 يوم)</span>
+          </div>
+
+          <!-- Quick Preset Buttons Grid -->
+          <div class="grid grid-cols-3 gap-1.5 mb-2.5" id="duration-pills">
+            <button type="button" onclick="selectDuration('trial_1_day', 1, 'تجربة يوم')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>⚡</span><span>1 يوم</span>
+            </button>
+            <button type="button" onclick="selectDuration('3_days', 3, '3 أيام')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>⚡</span><span>3 أيام</span>
+            </button>
+            <button type="button" onclick="selectDuration('7_days', 7, 'أسبوع (7 أيام)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>📅</span><span>7 أيام</span>
+            </button>
+            <button type="button" onclick="selectDuration('15_days', 15, '15 يوم')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>📅</span><span>15 يوم</span>
+            </button>
+            <button type="button" onclick="selectDuration('1_month', 30, 'شهر (30 يوم)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-emerald-950/80 border-emerald-400 text-emerald-200 font-bold flex items-center justify-center gap-1">
+              <span>📅</span><span>شهر (30)</span>
+            </button>
+            <button type="button" onclick="selectDuration('2_months', 60, 'شهرين (60 يوم)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>📅</span><span>شهرين (60)</span>
+            </button>
+            <button type="button" onclick="selectDuration('3_months', 90, '3 أشهر (90 يوم)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>📅</span><span>3 أشهر (90)</span>
+            </button>
+            <button type="button" onclick="selectDuration('6_months', 180, '6 أشهر (180 يوم)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>📅</span><span>6 أشهر (180)</span>
+            </button>
+            <button type="button" onclick="selectDuration('1_year', 365, 'سنة (365 يوم)')" class="dur-btn p-2 rounded-xl border text-center transition-all bg-[#151f38] border-slate-700/80 text-slate-300 flex items-center justify-center gap-1">
+              <span>👑</span><span>سنة (365)</span>
+            </button>
+          </div>
+
+          <!-- Direct Custom Days Input & Stepper (تحديد عدد الأيام يدوياً بدقة) -->
+          <div class="p-3 rounded-xl bg-[#0a0f1d] border border-cyan-500/50 shadow-inner">
+            <div class="flex items-center justify-between mb-2">
+              <label class="text-xs font-bold text-cyan-300 flex items-center gap-1.5">
+                <span>🎯</span>
+                <span>تحديد عدد الأيام يدوياً (أي عدد أيام مخصص):</span>
+              </label>
+              <span class="text-[10px] text-slate-400 font-mono">1 إلى 3650 يوم</span>
+            </div>
+
+            <!-- Stepper + Number Input Row -->
+            <div class="flex items-center gap-1.5 dir-ltr">
+              <button type="button" onclick="adjustCustomDays(-10)" class="h-10 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer transition-all" title="إنقاص 10 أيام">-10</button>
+              <button type="button" onclick="adjustCustomDays(-1)" class="h-10 w-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold text-sm border border-slate-700 cursor-pointer transition-all" title="إنقاص يوم واحد">-1</button>
+
+              <div class="flex-1 relative flex items-center">
+                <input 
+                  type="number" 
+                  id="form-custom-days" 
+                  min="1" 
+                  max="3650" 
+                  value="30" 
+                  oninput="handleCustomDaysInput(this.value)"
+                  class="w-full h-10 px-3 pl-12 rounded-xl bg-[#151f38] border border-cyan-500/60 font-mono font-black text-center text-cyan-200 text-base focus:outline-none focus:border-cyan-300 shadow-inner"
+                  placeholder="مثال: 7"
+                />
+                <span class="absolute left-3 text-slate-400 font-bold text-xs pointer-events-none">يوم</span>
+              </div>
+
+              <button type="button" onclick="adjustCustomDays(1)" class="h-10 w-9 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold text-sm border border-slate-700 cursor-pointer transition-all" title="زيادة يوم واحد">+1</button>
+              <button type="button" onclick="adjustCustomDays(10)" class="h-10 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 font-bold text-xs border border-slate-700 cursor-pointer transition-all" title="زيادة 10 أيام">+10</button>
+            </div>
+
+            <!-- Quick Day Shortcuts for Custom Durations -->
+            <div class="flex items-center justify-between text-[11px] text-slate-400 mt-2.5 pt-2 border-t border-slate-800/80">
+              <span class="text-[10px] text-slate-400 font-bold">خيارات سريعة:</span>
+              <div class="flex items-center gap-1">
+                <button type="button" onclick="setExactCustomDays(5)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">5 أيام</button>
+                <button type="button" onclick="setExactCustomDays(10)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">10 أيام</button>
+                <button type="button" onclick="setExactCustomDays(14)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">14 يوم</button>
+                <button type="button" onclick="setExactCustomDays(20)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">20 يوم</button>
+                <button type="button" onclick="setExactCustomDays(45)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">45 يوم</button>
+                <button type="button" onclick="setExactCustomDays(100)" class="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-cyan-950 text-cyan-300 border border-slate-700 text-[10px] font-bold cursor-pointer transition-all">100 يوم</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Target User / Device ID Binding -->
+        <div>
+          <label class="block text-slate-300 font-bold mb-1">معرف جهاز المندوب (Device ID) <span class="text-[10px] text-slate-400 font-normal mr-1">(اختياري - اتركه فارغاً لربطه عند أول استخدام)</span></label>
+          <input type="text" id="form-device-id" placeholder="مثال: AND-419E-DB58" class="w-full h-10 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 font-mono font-semibold text-cyan-300 text-xs focus:outline-none focus:border-cyan-400" />
+        </div>
+
+        <!-- Driver Name & Phone -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">اسم المندوب</label>
+            <input type="text" id="form-driver-name" placeholder="مثال: محمد العمري" class="w-full h-9 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400" />
+          </div>
+          <div>
+            <label class="block text-slate-400 font-bold mb-1">رقم الجوال (واتساب)</label>
+            <input type="text" id="form-driver-phone" placeholder="9665XXXXXXXX" dir="ltr" class="w-full h-9 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 text-white text-xs font-mono focus:outline-none focus:border-cyan-400" />
+          </div>
+        </div>
+
+        <!-- Start Mode -->
+        <div class="bg-[#141e3a] p-2.5 rounded-xl border border-slate-700/80">
+          <span class="block text-slate-300 font-bold mb-1">بدء الصلاحية:</span>
+          <div class="space-y-1">
+            <label class="flex items-center gap-2 cursor-pointer text-slate-200">
+              <input type="radio" name="startMode" value="on_first_activation" checked class="accent-emerald-500">
+              <span>يبدأ احتساب الأيام عند أول تفعيل من المندوب (مستحسن)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-400">
+              <input type="radio" name="startMode" value="from_now" class="accent-emerald-500">
+              <span>يبدأ من تاريخ اللحظة الحالية مباشرة</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Submit Buttons -->
+        <div class="flex items-center gap-2 pt-2">
+          <button type="submit" id="submit-code-btn" class="flex-1 h-10 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs shadow-lg shadow-emerald-500/20 active:scale-95 transition-all cursor-pointer flex items-center justify-center gap-1.5">
+            <i data-lucide="key" class="w-4 h-4 stroke-[3]"></i>
+            <span>إنشاء وتفعيل الكود</span>
+          </button>
+          <button type="button" onclick="closeCreateModal()" class="h-10 px-4 rounded-xl bg-slate-800 text-slate-300 hover:text-white font-bold">إلغاء</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL: DATABASE & CONFIGURATION -->
+  <div id="config-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 bg-black/80 backdrop-blur-md">
+    <div class="w-full max-w-lg bg-[#11192e] border border-cyan-500/40 rounded-3xl p-5 shadow-2xl text-white max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="text-base font-extrabold text-white flex items-center gap-2">
+          <i data-lucide="database" class="w-5 h-5 text-cyan-400"></i>
+          <span>إعدادات قاعدة بيانات فايربيس وأوفلاين</span>
+        </h3>
+        <button onclick="toggleServerConfigModal()" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 pt-3 text-xs">
+        <!-- 1. Firebase RTDB URL -->
+        <div class="bg-[#141e3a] p-3 rounded-2xl border border-cyan-500/30">
+          <div class="flex items-center justify-between mb-1.5">
+            <label class="text-cyan-300 font-bold flex items-center gap-1.5">
+              <i data-lucide="flame" class="w-4 h-4 text-amber-400"></i>
+              <span>رابط قاعدة بيانات فايربيس (Firebase Database URL):</span>
+            </label>
+            <span class="text-[10px] text-emerald-400 font-bold px-2 py-0.5 rounded bg-emerald-950 border border-emerald-500/30">سحابي + أوفلاين</span>
+          </div>
+          <input type="text" id="config-firebase-url" dir="ltr" placeholder="https://appprotector-79e9c-default-rtdb.firebaseio.com" class="w-full h-10 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 font-mono text-cyan-300 text-xs focus:outline-none focus:border-cyan-400" />
+          <div class="flex items-center justify-between mt-2">
+            <p class="text-[11px] text-slate-400">يتم تخزين ومزامنة كافة الأكواد تلقائياً مع مسار <code>/activation_codes</code>.</p>
+            <button type="button" onclick="testFirebaseConnection()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 text-[11px] font-bold border border-slate-700 cursor-pointer">
+              فحص الاتصال
+            </button>
+          </div>
+        </div>
+
+        <!-- 2. Operating Mode -->
+        <div class="bg-[#141e3a] p-3 rounded-2xl border border-slate-800">
+          <label class="block text-slate-300 font-bold mb-2">طريقة المزامنة والتخزين:</label>
+          <div class="space-y-2">
+            <label class="flex items-start gap-2.5 p-2 rounded-xl bg-[#0d1428] border border-slate-700/60 cursor-pointer hover:border-cyan-500/40 transition-all">
+              <input type="radio" name="operatingMode" value="hybrid" checked class="mt-0.5 accent-cyan-500">
+              <div>
+                <p class="font-bold text-white">تلقائي ذكي (فايربيس مباشر + تخزين أوفلاين + سيرفر)</p>
+                <p class="text-[11px] text-slate-400">يحفظ التعديلات فوراً محلياً أوفلاين ويزامنها مع فايربيس وسيرفر التطبيق بمجرد توفر الاتصال.</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-2.5 p-2 rounded-xl bg-[#0d1428] border border-slate-700/60 cursor-pointer hover:border-cyan-500/40 transition-all">
+              <input type="radio" name="operatingMode" value="firebase_direct" class="mt-0.5 accent-cyan-500">
+              <div>
+                <p class="font-bold text-white">فايربيس مباشر مع تخزين أوفلاين كامل (Direct Firebase)</p>
+                <p class="text-[11px] text-slate-400">اتصال مباشر بـ Firebase دون الحاجة لأي خادم وسيط مع كاش محلي أوفلاين كامل.</p>
+              </div>
+            </label>
+          </div>
+        </div>
+
+        <!-- 3. Backend Server URL & Admin Key -->
+        <div class="bg-[#141e3a] p-3 rounded-2xl border border-slate-800 space-y-3">
+          <div>
+            <label class="block text-slate-300 font-bold mb-1">رابط خادم التطبيق (Backend API URL):</label>
+            <input type="text" id="config-server-url" dir="ltr" placeholder="https://fast-34v4.onrender.com" class="w-full h-9 px-3 rounded-xl bg-[#0a0f1d] border border-slate-700 font-mono text-cyan-300 text-xs focus:outline-none focus:border-cyan-400" />
+          </div>
+
+          <div>
+            <label class="block text-slate-300 font-bold mb-1">مفتاح أمان المشرف السري (Admin Secret Key):</label>
+            <div class="relative">
+              <input type="password" id="config-admin-key" placeholder="locate_go_master_key_9977" class="w-full h-9 px-3 pl-10 rounded-xl bg-[#0a0f1d] border border-slate-700 font-mono text-emerald-300 text-xs focus:outline-none focus:border-cyan-400" />
+              <button type="button" onclick="toggleKeyVisibility()" class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white cursor-pointer" title="إظهار / إخفاء المفتاح">
+                <i data-lucide="eye" id="toggle-key-icon" class="w-4 h-4"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Offline Backup & Export Tools -->
+        <div class="bg-[#141e3a] p-3 rounded-2xl border border-slate-800 space-y-2">
+          <label class="block text-slate-300 font-bold">أدوات النسخ الاحتياطي للأوفلاين:</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" onclick="exportOfflineJsonBackup()" class="h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center gap-1.5 border border-slate-700 transition-all cursor-pointer">
+              <i data-lucide="download" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>تصدير نسخة JSON</span>
+            </button>
+            <label class="h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold flex items-center justify-center gap-1.5 border border-slate-700 transition-all cursor-pointer">
+              <i data-lucide="upload" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span>استيراد نسخة JSON</span>
+              <input type="file" id="import-json-input" accept=".json" onchange="handleImportJson(event)" class="hidden" />
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button onclick="saveAllConfig()" class="flex-1 h-10 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs cursor-pointer shadow-lg shadow-emerald-500/20">
+            حفظ الإعدادات والمزامنة
+          </button>
+          <button onclick="resetDefaultConfig()" class="h-10 px-3 rounded-xl bg-slate-800 text-slate-400 hover:text-white font-bold cursor-pointer">
+            الافتراضي
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- APPLICATION JAVASCRIPT & OFFLINE FIREBASE ENGINE -->
+  <script>
+    // Constants & Default Config
+    const DEFAULT_FIREBASE_URL = 'https://appprotector-79e9c-default-rtdb.firebaseio.com';
+    const DEFAULT_SERVER_URL = window.location.origin.includes('localhost') || window.location.origin.includes('run.app')
+      ? window.location.origin
+      : 'https://fast-34v4.onrender.com';
+    const DEFAULT_ADMIN_KEY = 'locate_go_master_key_9977';
+
+    const STORAGE_KEYS = {
+      FIREBASE_URL: 'locatego_firebase_url_v2',
+      SERVER_URL: 'locatego_admin_server_url_v2',
+      ADMIN_KEY: 'locatego_admin_secret_key_v2',
+      MODE: 'locatego_operating_mode_v2',
+      OFFLINE_CODES: 'locatego_offline_codes_v2',
+      OFFLINE_QUEUE: 'locatego_offline_queue_v2',
+      STATS: 'locatego_offline_stats_v2',
+    };
+
+    // State
+    let allCodes = [];
+    let currentFilter = 'all';
+    let selectedDurationPlan = '1_month';
+    let selectedDurationDays = 30;
+    let selectedPlanName = 'شهر';
+    let isOnline = navigator.onLine;
+    let isSyncing = false;
+
+    let currentFirebaseUrl = localStorage.getItem(STORAGE_KEYS.FIREBASE_URL) || DEFAULT_FIREBASE_URL;
+    let currentServerUrl = localStorage.getItem(STORAGE_KEYS.SERVER_URL) || DEFAULT_SERVER_URL;
+    let currentAdminKey = localStorage.getItem(STORAGE_KEYS.ADMIN_KEY) || DEFAULT_ADMIN_KEY;
+    let currentMode = localStorage.getItem(STORAGE_KEYS.MODE) || 'hybrid';
+
+    function getCleanFirebaseUrl() {
+      return (currentFirebaseUrl || DEFAULT_FIREBASE_URL).replace(/\/+$/, '');
+    }
+
+    function getServerBaseUrl() {
+      return (currentServerUrl || DEFAULT_SERVER_URL).replace(/\/+$/, '');
+    }
+
+    function getAdminHeaders(extraHeaders = {}) {
+      return {
+        'X-Admin-Key': currentAdminKey,
+        ...extraHeaders
+      };
+    }
+
+    function showToast(msg, isSuccess = true) {
+      const el = document.getElementById('toast');
+      const text = document.getElementById('toast-text');
+      const icon = document.getElementById('toast-icon');
+      text.innerText = msg;
+      icon.setAttribute('data-lucide', isSuccess ? 'sparkles' : 'alert-triangle');
+      el.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-20px]');
+      el.classList.add('opacity-100', 'translate-y-0');
+      lucide.createIcons();
+      setTimeout(() => {
+        el.classList.remove('opacity-100', 'translate-y-0');
+        el.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-20px]');
+      }, 2800);
+    }
+
+    // ----------------------------------------------------
+    // OFFLINE QUEUE & STORAGE ENGINE
+    // ----------------------------------------------------
+    function getOfflineQueue() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.OFFLINE_QUEUE);
+        return raw ? JSON.parse(raw) : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function setOfflineQueue(queue) {
+      localStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(queue));
+      updateQueueBadge();
+    }
+
+    function enqueueOfflineAction(actionType, id, data) {
+      const queue = getOfflineQueue();
+      // Remove any previous pending action for this ID if superseding
+      const filtered = queue.filter(item => !(item.id === id && actionType === 'DELETE'));
+      filtered.push({
+        type: actionType,
+        id,
+        data,
+        timestamp: Date.now()
+      });
+      setOfflineQueue(filtered);
+    }
+
+    function updateQueueBadge() {
+      const queue = getOfflineQueue();
+      const badge = document.getElementById('sync-queue-badge');
+      const text = document.getElementById('sync-queue-text');
+      const alertBanner = document.getElementById('offline-alert-banner');
+
+      if (queue.length > 0) {
+        badge.classList.remove('hidden');
+        badge.classList.add('flex');
+        text.innerText = `${queue.length} تعديل بانتظار المزامنة`;
+        alertBanner.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+        badge.classList.remove('flex');
+        if (navigator.onLine) {
+          alertBanner.classList.add('hidden');
+        } else {
+          alertBanner.classList.remove('hidden');
+        }
+      }
+    }
+
+    // ----------------------------------------------------
+    // الحفظ المباشر في قاعدة بيانات Firebase السحابية دون تخزين محلي
+    // ----------------------------------------------------
+    const TOMBSTONES_KEY = 'locate_vip_deleted_tombstones';
+
+    function getDeletedTombstones() {
+      try {
+        const raw = localStorage.getItem(TOMBSTONES_KEY);
+        return raw ? new Set(JSON.parse(raw)) : new Set();
+      } catch {
+        return new Set();
+      }
+    }
+
+    function addDeletedTombstone(val) {
+      if (!val) return;
+      try {
+        const set = getDeletedTombstones();
+        set.add(String(val).trim().toUpperCase());
+        localStorage.setItem(TOMBSTONES_KEY, JSON.stringify(Array.from(set)));
+      } catch {}
+    }
+
+    function isDeletedTombstone(val) {
+      if (!val) return false;
+      const set = getDeletedTombstones();
+      return set.has(String(val).trim().toUpperCase());
+    }
+
+    function saveOfflineCache(_codesList) {
+      // بناءً على طلب المشرف: عدم حفظ أكواد الاشتراك في التخزين المحلي (LocalStorage)
+      // جميع الأكواد تعتمد حصرياً على الحفظ السحابي في قاعدة بيانات Firebase RTDB
+      try {
+        localStorage.removeItem(STORAGE_KEYS.OFFLINE_CODES);
+      } catch {}
+    }
+
+    function loadOfflineCache() {
+      // إفراغ التخزين المحلي والاعتماد فقط على الجلب المباشر من قاعدة البيانات السحابية
+      try {
+        localStorage.removeItem(STORAGE_KEYS.OFFLINE_CODES);
+      } catch {}
+      return [];
+    }
+
+    // ----------------------------------------------------
+    // SCHEMA NORMALIZER: Handles both Firebase & Server schemas
+    // ----------------------------------------------------
+    function normalizeCodeObject(raw) {
+      if (!raw || typeof raw !== 'object') return null;
+      const codeStr = (raw.code || '').toString().trim().toUpperCase();
+      if (!codeStr) return null;
+
+      const id = raw.id || `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+      const expiryDate = raw.expiry_date || raw.expiryDate || new Date(Date.now() + 30 * 86400 * 1000).toISOString();
+      const usedByDeviceId = raw.used_by || raw.usedByDeviceId || raw.target_device_id || raw.targetDeviceId || null;
+      const targetDeviceId = raw.target_device_id || raw.targetDeviceId || null;
+      const driverName = raw.driver_name || raw.driverName || null;
+      const driverPhone = raw.driver_phone || raw.driverPhone || null;
+      const planName = raw.plan_name || raw.planName || 'شهر';
+      const durationDays = Number(raw.duration_days || raw.durationDays || 30);
+      const status = raw.status || (new Date(expiryDate).getTime() < Date.now() ? 'expired' : 'active');
+      const createdAt = raw.created_at || raw.createdAt || new Date().toISOString();
+
+      return {
+        id,
+        code: codeStr,
+        status,
+        planName,
+        durationDays,
+        duration: raw.duration || 'custom',
+        targetDeviceId,
+        usedByDeviceId,
+        driverName,
+        driverPhone,
+        notes: raw.note || raw.notes || null,
+        startMode: raw.start_mode || raw.startMode || 'on_first_activation',
+        createdAt,
+        activatedAt: raw.activated_at || raw.activatedAt || null,
+        expiryDate,
+        lastVerifiedAt: raw.last_verified_at || raw.lastVerifiedAt || null,
+        offlinePending: !!raw.offlinePending
+      };
+    }
+
+    function toFirebaseRecord(item) {
+      return {
+        id: item.id,
+        code: item.code,
+        status: item.status,
+        expiry_date: item.expiryDate,
+        expiryDate: item.expiryDate,
+        used_by: item.usedByDeviceId || item.targetDeviceId || '',
+        usedByDeviceId: item.usedByDeviceId || null,
+        target_device_id: item.targetDeviceId || '',
+        targetDeviceId: item.targetDeviceId || null,
+        driver_name: item.driverName || '',
+        driverName: item.driverName || null,
+        driver_phone: item.driverPhone || '',
+        driverPhone: item.driverPhone || null,
+        plan_name: item.planName,
+        planName: item.planName,
+        duration: item.duration || 'custom',
+        duration_days: item.durationDays,
+        durationDays: item.durationDays,
+        max_uses: 1,
+        used_count: item.usedByDeviceId ? 1 : 0,
+        note: item.notes || '',
+        notes: item.notes || null,
+        start_mode: item.startMode || 'on_first_activation',
+        startMode: item.startMode || 'on_first_activation',
+        created_at: item.createdAt,
+        createdAt: item.createdAt,
+        activated_at: item.activatedAt || null,
+        activatedAt: item.activatedAt || null,
+        last_verified_at: item.lastVerifiedAt || null,
+        lastVerifiedAt: item.lastVerifiedAt || null
+      };
+    }
+
+    // ----------------------------------------------------
+    // DUAL SYNC & FETCH ENGINE (FIREBASE AUTHORITATIVE + TOMBSTONE PURGE)
+    // ----------------------------------------------------
+    async function syncAllData() {
+      if (isSyncing) return;
+      isSyncing = true;
+      const icon = document.getElementById('refresh-icon');
+      icon.classList.add('animate-spin');
+
+      try {
+        // Step 1: Drain any pending offline queue to Firebase & Server
+        await drainOfflineQueue();
+
+        // Step 2: Fetch latest codes from Firebase and Server
+        const [firebaseCodes, serverData] = await Promise.allSettled([
+          fetchFromFirebase(),
+          fetchFromServer()
+        ]);
+
+        let cleanList = [];
+        const tombstones = getDeletedTombstones();
+        const cleanFirebase = getCleanFirebaseUrl();
+
+        // فايربيس هي المصدر الحقيقي المعتمد (Single Source of Truth)
+        if (firebaseCodes.status === 'fulfilled' && firebaseCodes.value) {
+          const rawRemote = firebaseCodes.value;
+          for (const item of rawRemote) {
+            const norm = normalizeCodeObject(item);
+            if (!norm) continue;
+
+            // إذا كان الكود أو المعرف مسجلاً كمحذوف، نقوم بمسحه فوراً ونهائياً من فايربيس
+            if (tombstones.has(norm.code) || tombstones.has(norm.id)) {
+              console.log(`[AdminPortal] 🧹 Purging tombstoned deleted code from Firebase: ${norm.code}`);
+              fetch(`${cleanFirebase}/activation_codes/${norm.id}.json`, { method: 'DELETE' }).catch(() => {});
+              continue;
+            }
+
+            cleanList.push(norm);
+          }
+        } else if (serverData.status === 'fulfilled' && serverData.value) {
+          // بديل ثانوي في حال انقطاع الاتصال المباشر بفايربيس
+          for (const item of serverData.value) {
+            const norm = normalizeCodeObject(item);
+            if (!norm) continue;
+            if (tombstones.has(norm.code) || tombstones.has(norm.id)) continue;
+            cleanList.push(norm);
+          }
+        }
+
+        // ترتيب الأكواد تنازلياً حسب تاريخ الإنشاء
+        allCodes = cleanList.sort((a, b) => {
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        });
+
+        calculateAndUpdateStats();
+        renderCodesList();
+        setConnectionState(true, 'فايربيس متصل');
+      } catch (err) {
+        console.warn('Sync hiccup (falling back to offline database):', err);
+        setConnectionState(false, 'وضع أوفلاين (مخزن محلياً)');
+      } finally {
+        isSyncing = false;
+        setTimeout(() => icon.classList.remove('animate-spin'), 300);
+        updateQueueBadge();
+      }
+    }
+
+    async function drainOfflineQueue() {
+      const queue = getOfflineQueue();
+      if (!queue.length) return;
+
+      const remaining = [];
+      const cleanFirebase = getCleanFirebaseUrl();
+      const tombstones = getDeletedTombstones();
+
+      for (const task of queue) {
+        // إذا كان الكود أو المعرف قد حُذف، نتجاهله تماماً ونمسحه من الطابور لمنع أي إعادة إنشاء له
+        if (tombstones.has(task.id) || (task.data && tombstones.has(task.data.code))) {
+          continue;
+        }
+
+        try {
+          if (task.type === 'CREATE' || task.type === 'UPDATE') {
+            const fbRecord = toFirebaseRecord(task.data);
+            await fetch(`${cleanFirebase}/activation_codes/${task.id}.json`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(fbRecord)
+            });
+            try {
+              await fetch(`${getServerBaseUrl()}/api/admin/subscriptions/generate`, {
+                method: 'POST',
+                headers: getAdminHeaders({ 'Content-Type': 'application/json' }),
+                body: JSON.stringify(task.data)
+              });
+            } catch {}
+          } else if (task.type === 'DELETE') {
+            await fetch(`${cleanFirebase}/activation_codes/${task.id}.json`, {
+              method: 'DELETE'
+            });
+            try {
+              await fetch(`${getServerBaseUrl()}/api/admin/subscriptions/${task.id}`, {
+                method: 'DELETE',
+                headers: getAdminHeaders()
+              });
+            } catch {}
+          }
+        } catch (taskErr) {
+          remaining.push(task);
+        }
+      }
+
+      setOfflineQueue(remaining);
+    }
+
+    async function fetchFromFirebase() {
+      const cleanUrl = getCleanFirebaseUrl();
+      const res = await fetch(`${cleanUrl}/activation_codes.json`);
+      if (!res.ok) throw new Error(`Firebase returned ${res.status}`);
+      const data = await res.json();
+      if (!data || typeof data !== 'object') return [];
+      return Object.values(data);
+    }
+
+    async function fetchFromServer() {
+      try {
+        const res = await fetch(`${getServerBaseUrl()}/api/admin/subscriptions`, {
+          headers: getAdminHeaders()
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (data.activeDevices) renderActiveDevices(data.activeDevices);
+        return data.codes || null;
+      } catch {
+        return null;
+      }
+    }
+
+    function setConnectionState(online, label) {
+      const dot = document.getElementById('server-status-dot');
+      const text = document.getElementById('server-status-label');
+      if (online) {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.8)]';
+        text.innerText = label || 'فايربيس متصل';
+        text.className = 'font-bold text-emerald-300';
+      } else {
+        dot.className = 'w-2.5 h-2.5 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]';
+        text.innerText = label || 'وضع أوفلاين';
+        text.className = 'font-bold text-amber-300';
+      }
+    }
+
+    function calculateAndUpdateStats() {
+      const now = Date.now();
+      const total = allCodes.length;
+      let active = 0, used = 0, expired = 0, revoked = 0;
+
+      allCodes.forEach(c => {
+        const isExp = new Date(c.expiryDate).getTime() <= now || c.status === 'expired';
+        const isRev = c.status === 'revoked';
+        if (isRev) {
+          revoked++;
+        } else if (isExp) {
+          expired++;
+        } else if (c.usedByDeviceId) {
+          used++;
+          active++;
+        } else {
+          active++;
+        }
+      });
+
+      document.getElementById('stat-total').innerText = total;
+      document.getElementById('stat-active').innerText = active;
+      document.getElementById('stat-used').innerText = used;
+      document.getElementById('stat-expired').innerText = expired + revoked;
+    }
+
+    // ----------------------------------------------------
+    // CRUD OPERATIONS (OFFLINE-FIRST WITH BACKGROUND SYNC)
+    // ----------------------------------------------------
+    function generateCodeString() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let p1 = '', p2 = '';
+      for (let i = 0; i < 4; i++) {
+        p1 += chars.charAt(Math.floor(Math.random() * chars.length));
+        p2 += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return `VIP-${p1}-${p2}`;
+    }
+
+    function randomizeFormCode() {
+      document.getElementById('form-code').value = generateCodeString();
+    }
+
+    function openCreateModal(prefillDeviceId = '') {
+      randomizeFormCode();
+      document.getElementById('form-device-id').value = prefillDeviceId || '';
+      document.getElementById('form-driver-name').value = '';
+      document.getElementById('form-driver-phone').value = '';
+      selectDuration('1_month', 30, 'شهر (30 يوم)');
+      const customInput = document.getElementById('form-custom-days');
+      if (customInput) customInput.value = 30;
+      document.getElementById('create-modal').classList.remove('hidden');
+    }
+
+    function closeCreateModal() {
+      document.getElementById('create-modal').classList.add('hidden');
+    }
+
+    async function handleCreateSubmit(e) {
+      e.preventDefault();
+      const code = document.getElementById('form-code').value.trim().toUpperCase();
+      const rawTarget = document.getElementById('form-device-id').value.trim();
+      const targetDeviceId = rawTarget.replace(/[\u200B-\u200F\uFEFF\u202A-\u202E\s]/g, '').toUpperCase();
+      const driverName = document.getElementById('form-driver-name').value.trim();
+      const driverPhone = document.getElementById('form-driver-phone').value.trim();
+      const startMode = document.querySelector('input[name="startMode"]:checked').value;
+
+      const btn = document.getElementById('submit-code-btn');
+      btn.disabled = true;
+
+      const now = Date.now();
+      const expiryDate = new Date(now + selectedDurationDays * 86400 * 1000).toISOString();
+      const newId = `sub-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+      const newCodeObj = {
+        id: newId,
+        code,
+        planName: selectedPlanName,
+        duration: selectedDurationPlan,
+        durationDays: selectedDurationDays,
+        targetDeviceId: targetDeviceId || null,
+        usedByDeviceId: targetDeviceId || null,
+        driverName: driverName || null,
+        driverPhone: driverPhone || null,
+        notes: null,
+        startMode,
+        createdAt: new Date().toISOString(),
+        activatedAt: startMode === 'from_now' ? new Date().toISOString() : null,
+        expiryDate,
+        status: 'active',
+        offlinePending: true
+      };
+
+      // 1. Save immediately to Local Database
+      allCodes.unshift(newCodeObj);
+      saveOfflineCache(allCodes);
+      calculateAndUpdateStats();
+      renderCodesList();
+      closeCreateModal();
+      showNewCodeBanner(newCodeObj);
+
+      // 2. Enqueue offline action
+      enqueueOfflineAction('CREATE', newId, newCodeObj);
+
+      // 3. Attempt direct Firebase write immediately
+      try {
+        const cleanFirebase = getCleanFirebaseUrl();
+        const fbPayload = toFirebaseRecord(newCodeObj);
+        const fbRes = await fetch(`${cleanFirebase}/activation_codes/${newId}.json`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fbPayload)
+        });
+
+        if (fbRes.ok) {
+          newCodeObj.offlinePending = false;
+          saveOfflineCache(allCodes);
+          // Remove from queue since write succeeded
+          const q = getOfflineQueue().filter(item => item.id !== newId);
+          setOfflineQueue(q);
+          showToast(`تم إنشاء الكود (${code}) وحفظه في فايربيس بنجاح!`);
+          document.getElementById('banner-code-sync-badge').innerText = 'محفوظ في فايربيس ✅';
+          document.getElementById('banner-code-sync-badge').className = 'text-[10px] px-2 py-0.5 rounded-full bg-emerald-900/60 text-emerald-300 border border-emerald-400/40 font-bold';
+        } else {
+          showToast(`تم حفظ الكود (${code}) محلياً في وضع أوفلاين`);
+          document.getElementById('banner-code-sync-badge').innerText = 'مخزن أوفلاين (بانتظار المزامنة) ⏳';
+          document.getElementById('banner-code-sync-badge').className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 font-bold';
+        }
+      } catch (fbErr) {
+        showToast(`تم حفظ الكود (${code}) محلياً في وضع أوفلاين`);
+        document.getElementById('banner-code-sync-badge').innerText = 'مخزن أوفلاين (بانتظار المزامنة) ⏳';
+        document.getElementById('banner-code-sync-badge').className = 'text-[10px] px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/40 font-bold';
+      } finally {
+        btn.disabled = false;
+        renderCodesList();
+      }
+    }
+
+    async function extendCode(id, days) {
+      const codeObj = allCodes.find(c => c.id === id);
+      if (!codeObj) return;
+
+      const currentExpiry = new Date(codeObj.expiryDate).getTime();
+      const baseTime = currentExpiry > Date.now() ? currentExpiry : Date.now();
+      codeObj.expiryDate = new Date(baseTime + days * 86400 * 1000).toISOString();
+      codeObj.durationDays = (codeObj.durationDays || 30) + days;
+      if (codeObj.status === 'expired') {
+        codeObj.status = codeObj.usedByDeviceId ? 'used' : 'active';
+      }
+      codeObj.offlinePending = true;
+
+      saveOfflineCache(allCodes);
+      calculateAndUpdateStats();
+      renderCodesList();
+      enqueueOfflineAction('UPDATE', id, codeObj);
+      showToast(`تم تمديد الكود (${codeObj.code}) بمقدار ${days} يوماً محلياً`);
+
+      // Try pushing directly to Firebase
+      try {
+        const cleanFirebase = getCleanFirebaseUrl();
+        await fetch(`${cleanFirebase}/activation_codes/${id}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            expiry_date: codeObj.expiryDate,
+            expiryDate: codeObj.expiryDate,
+            duration_days: codeObj.durationDays,
+            status: codeObj.status
+          })
+        });
+        codeObj.offlinePending = false;
+        saveOfflineCache(allCodes);
+        const q = getOfflineQueue().filter(item => item.id !== id);
+        setOfflineQueue(q);
+        renderCodesList();
+      } catch {}
+    }
+
+    async function unbindCode(id) {
+      if (!confirm('هل أنت متأكد من فك ارتباط الجهاز؟ سيتمكن المندوب من تفعيل الكود على أي جوال آخر.')) return;
+      const codeObj = allCodes.find(c => c.id === id);
+      if (!codeObj) return;
+
+      codeObj.usedByDeviceId = null;
+      codeObj.targetDeviceId = null;
+      codeObj.status = 'active';
+      codeObj.offlinePending = true;
+
+      saveOfflineCache(allCodes);
+      calculateAndUpdateStats();
+      renderCodesList();
+      enqueueOfflineAction('UPDATE', id, codeObj);
+      showToast('تم فك ارتباط الجهاز بنجاح محلياً');
+
+      try {
+        const cleanFirebase = getCleanFirebaseUrl();
+        await fetch(`${cleanFirebase}/activation_codes/${id}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            used_by: '',
+            usedByDeviceId: null,
+            target_device_id: '',
+            targetDeviceId: null,
+            status: 'active'
+          })
+        });
+        codeObj.offlinePending = false;
+        saveOfflineCache(allCodes);
+        const q = getOfflineQueue().filter(item => item.id !== id);
+        setOfflineQueue(q);
+        renderCodesList();
+      } catch {}
+    }
+
+    async function toggleRevokeCode(id, isCurrentlyRevoked) {
+      const codeObj = allCodes.find(c => c.id === id);
+      if (!codeObj) return;
+
+      const newStatus = isCurrentlyRevoked ? (codeObj.usedByDeviceId ? 'used' : 'active') : 'revoked';
+      codeObj.status = newStatus;
+      codeObj.offlinePending = true;
+
+      saveOfflineCache(allCodes);
+      calculateAndUpdateStats();
+      renderCodesList();
+      enqueueOfflineAction('UPDATE', id, codeObj);
+      showToast(isCurrentlyRevoked ? 'تم تنشيط الكود' : 'تم تعطيل الكود');
+
+      try {
+        const cleanFirebase = getCleanFirebaseUrl();
+        await fetch(`${cleanFirebase}/activation_codes/${id}.json`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: newStatus, last_status_change: Date.now() })
+        });
+        codeObj.offlinePending = false;
+        saveOfflineCache(allCodes);
+        const q = getOfflineQueue().filter(item => item.id !== id);
+        setOfflineQueue(q);
+        renderCodesList();
+      } catch {}
+
+      // إعلام السيرفر فوراً لتحديث الذاكرة الحية وقفل أو فتح جلسة المندوب فوراً
+      try {
+        await fetch(`${getServerBaseUrl()}/api/admin/subscriptions/${id}/${isCurrentlyRevoked ? 'activate' : 'revoke'}`, {
+          method: 'POST',
+          headers: getAdminHeaders()
+        });
+      } catch {}
+    }
+
+    async function deleteCode(id, code) {
+      if (!confirm(`هل أنت متأكد من حذف كود الاشتراك (${code}) نهائياً؟\n\nتنبيه: سيتم تعطيل التطبيق لدى السائق فوراً ومسحه تماماً من قاعدة بيانات فايربيس والسيرفر ولن يعود للظهور مجدداً أبداً.`)) return;
+
+      // 1. تسجيل الكود ومعرفه في قائمة شواهد الحذف الدائمة لمنع أي استرجاع أو مزامنة تلقائية
+      addDeletedTombstone(id);
+      addDeletedTombstone(code);
+
+      // 2. حذفه فوراً من الذاكرة الحية وتحديث الإحصائيات والشاشة
+      allCodes = allCodes.filter(c => c.id !== id && c.code !== code);
+      calculateAndUpdateStats();
+      renderCodesList();
+
+      // 3. تنظيف أي طوابير انتظار معلقة لهذا الكود لضمان عدم إعادة إرساله
+      const q = getOfflineQueue().filter(item => item.id !== id && (!item.data || item.data.code !== code));
+      setOfflineQueue(q);
+
+      showToast(`جاري تعطيل وحذف الكود (${code}) فوراً...`);
+
+      const cleanFirebase = getCleanFirebaseUrl();
+
+      // 4. خطوة التعطيل اللحظي الفائق (Fast Revoke Broadcast):
+      // إرسال إشعار فوري بحالة revoked إلى Firebase RTDB قبل الحذف
+      // لكي يتم بثه عبر SSE إلى جوال السائق في أقل من 50ms ويتعطل فوراً دون أي انتظار!
+      try {
+        const revokePayload = JSON.stringify({
+          status: 'revoked',
+          revoked_reason: 'deleted_by_admin',
+          last_status_change: Date.now()
+        });
+
+        await Promise.allSettled([
+          fetch(`${cleanFirebase}/activation_codes/${id}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: revokePayload
+          }),
+          code && code !== id ? fetch(`${cleanFirebase}/activation_codes/${code}.json`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: revokePayload
+          }) : Promise.resolve(),
+          fetch(`${getServerBaseUrl()}/api/admin/subscriptions/${id}/revoke`, {
+            method: 'POST',
+            headers: getAdminHeaders()
+          })
+        ]);
+      } catch (revErr) {
+        console.warn('Fast revoke broadcast warning:', revErr);
+      }
+
+      // 5. حذف مباشر وصريح من قاعدة بيانات فايربيس مع انتظار اكتمال العملية (await)
+      let fbOk = false;
+      try {
+        const res = await fetch(`${cleanFirebase}/activation_codes/${id}.json`, {
+          method: 'DELETE'
+        });
+        if (res.ok) fbOk = true;
+
+        if (code && code !== id) {
+          await fetch(`${cleanFirebase}/activation_codes/${code}.json`, {
+            method: 'DELETE'
+          }).catch(() => {});
+        }
+      } catch (fbErr) {
+        console.warn('Firebase direct delete warning:', fbErr);
+      }
+
+      // 6. حذف الكود من ذاكرة وقاعدة بيانات السيرفر الخلفي أيضاً لضمان التزامن الكامل
+      try {
+        await fetch(`${getServerBaseUrl()}/api/admin/subscriptions/${id}`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+      } catch (srvErr) {
+        console.warn('Server delete notification warning:', srvErr);
+      }
+
+      showToast(`✅ تم تعطيل وحذف الكود (${code}) نهائياً`);
+    }
+
+    async function deleteAllCodes() {
+      const total = allCodes.length;
+      if (total === 0) {
+        showToast('لا توجد أي أكواد لحذفها حالياً');
+        return;
+      }
+
+      const confirmed = confirm(
+        `⚠️ تحذير أمني هام:\n\nهل أنت متأكد من حذف جميع أكواد الاشتراك (${total} كود) نهائياً؟\n\n- سيتم تعطيل التطبيق لدى جميع السائقين فوراً بأقصى سرعة.\n- سيتم مسحها تماماً وفوراً من قاعدة بيانات فايربيس والسيرفر.\n- هذا الإجراء نهائي ولا يمكن التراجع عنه!`
+      );
+      if (!confirmed) return;
+
+      const doubleCheck = prompt('لتأكيد الحذف الشامل لجميع الأكواد، اكتب كلمة (حذف) أو (delete) أدناه:');
+      if (!doubleCheck || (doubleCheck.trim() !== 'حذف' && doubleCheck.trim().toLowerCase() !== 'delete')) {
+        showToast('تم إلغاء عملية الحذف');
+        return;
+      }
+
+      showToast(`جاري تعطيل وحذف جميع الأكواد (${total})...`);
+
+      const currentCodesCopy = [...allCodes];
+      const cleanFirebase = getCleanFirebaseUrl();
+
+      // 1. تسجيل كافة الأكواد الحالية في قائمة الشواهد المحذوفة (Tombstones) لمنع استعادتها
+      allCodes.forEach(c => {
+        if (c.code) addDeletedTombstone(c.code);
+        if (c.id) addDeletedTombstone(c.id);
+      });
+
+      // 2. بث أمر تعطيل فوري لكافة الأكواد قبل الحذف الفعلي حتى تتعطل على أجهزة السائقين فوراً (<50ms)
+      try {
+        const revokePayload = JSON.stringify({
+          status: 'revoked',
+          revoked_reason: 'bulk_deleted',
+          last_status_change: Date.now()
+        });
+
+        await Promise.allSettled(
+          currentCodesCopy.map(c => 
+            fetch(`${cleanFirebase}/activation_codes/${c.id}.json`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: revokePayload
+            })
+          )
+        );
+      } catch (revErr) {
+        console.warn('Bulk revoke broadcast warning:', revErr);
+      }
+
+      // 3. تصفير القائمة محلياً فوراً وتحديث الشاشة والإحصائيات
+      allCodes = [];
+      setOfflineQueue([]);
+      saveOfflineCache([]);
+      calculateAndUpdateStats();
+      renderCodesList();
+
+      // 4. حذف جميع الأكواد من قاعدة بيانات فايربيس مباشرة مع انتظار الاكتمال (await)
+      let fbOk = false;
+      try {
+        const res = await fetch(`${cleanFirebase}/activation_codes.json`, {
+          method: 'DELETE'
+        });
+        if (res.ok) fbOk = true;
+      } catch (err) {
+        console.warn('Firebase bulk delete error:', err);
+      }
+
+      // 5. حذف جميع الأكواد من السيرفر الخلفي أيضاً
+      try {
+        await fetch(`${getServerBaseUrl()}/api/admin/subscriptions`, {
+          method: 'DELETE',
+          headers: getAdminHeaders()
+        });
+      } catch (err) {
+        console.warn('Server bulk delete error:', err);
+      }
+
+      showToast(`✅ تم تعطيل وحذف جميع الأكواد (${total}) نهائياً`);
+    }
+
+    // ----------------------------------------------------
+    // UI RENDERING
+    // ----------------------------------------------------
+    function showNewCodeBanner(codeObj) {
+      const banner = document.getElementById('new-code-banner');
+      document.getElementById('banner-code-str').innerText = codeObj.code;
+      document.getElementById('banner-code-desc').innerText = `الباقة: ${codeObj.planName} (${codeObj.durationDays} يوم) • الجهاز: ${codeObj.targetDeviceId || 'أي جهاز'}`;
+
+      document.getElementById('banner-copy-btn').onclick = () => copyToClipboard(codeObj.code);
+      document.getElementById('banner-wa-btn').onclick = () => shareWhatsApp(codeObj.code, codeObj.planName, codeObj.durationDays, codeObj.targetDeviceId || '', codeObj.driverPhone || '', new Date(codeObj.expiryDate).toLocaleDateString('ar-SA'));
+
+      banner.classList.remove('hidden');
+    }
+
+    function renderCodesList() {
+      const container = document.getElementById('codes-container');
+      const q = (document.getElementById('search-input').value || '').trim().toLowerCase();
+
+      const filtered = allCodes.filter(c => {
+        const matchesStatus = currentFilter === 'all'
+          ? true
+          : currentFilter === 'pending_sync'
+          ? c.offlinePending
+          : currentFilter === 'active'
+          ? c.status === 'active' || (c.status === 'used' && new Date(c.expiryDate).getTime() > Date.now())
+          : c.status === currentFilter;
+
+        const matchesSearch = !q ||
+          c.code.toLowerCase().includes(q) ||
+          (c.driverName && c.driverName.toLowerCase().includes(q)) ||
+          (c.targetDeviceId && c.targetDeviceId.toLowerCase().includes(q)) ||
+          (c.usedByDeviceId && c.usedByDeviceId.toLowerCase().includes(q)) ||
+          (c.driverPhone && c.driverPhone.includes(q));
+
+        return matchesStatus && matchesSearch;
+      });
+
+      if (filtered.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 bg-[#121a32]/60 rounded-2xl border border-slate-800">
+            <i data-lucide="key" class="w-10 h-10 text-slate-600 mx-auto mb-2"></i>
+            <p class="text-sm font-bold text-slate-300">لا توجد أكواد مطابقة</p>
+            <p class="text-xs text-slate-500 mt-1">انقر على "إنشاء كود جديد" للبدء</p>
+          </div>
+        `;
+        lucide.createIcons();
+        return;
+      }
+
+      container.innerHTML = filtered.map(item => {
+        const isExpired = new Date(item.expiryDate).getTime() <= Date.now() || item.status === 'expired';
+        const isRevoked = item.status === 'revoked';
+        const diffMs = new Date(item.expiryDate).getTime() - Date.now();
+        const remDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        const remHours = Math.max(0, Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
+
+        return `
+          <div class="bg-[#121a32]/90 hover:bg-[#16213f] transition-all rounded-2xl p-4 border ${item.offlinePending ? 'border-amber-500/50' : isRevoked ? 'border-rose-500/30' : isExpired ? 'border-slate-800 opacity-75' : item.usedByDeviceId ? 'border-cyan-500/30' : 'border-emerald-500/30'} flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm">
+            <div class="flex items-start gap-3">
+              <button onclick="copyToClipboard('${item.code}')" class="group flex items-center gap-1.5 bg-[#090d18] px-3.5 py-2 rounded-xl border border-indigo-500/30 hover:border-cyan-400 font-mono font-black text-sm text-white transition-all cursor-pointer shadow-inner" title="انقر لنسخ الكود">
+                <i data-lucide="copy" class="w-4 h-4 text-slate-400 group-hover:text-cyan-300"></i>
+                <span>${item.code}</span>
+              </button>
+              <div>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-xs font-bold text-white">${item.driverName || 'مندوب غير مسمى'}</span>
+                  ${item.driverPhone ? `<span class="text-[11px] font-mono text-slate-400" dir="ltr">${item.driverPhone}</span>` : ''}
+                  ${isRevoked ? '<span class="px-2 py-0.5 rounded-full bg-rose-950 text-rose-300 border border-rose-500/40 text-[10px] font-bold">معطل</span>'
+                    : isExpired ? '<span class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700 text-[10px] font-bold">منتهي</span>'
+                    : item.usedByDeviceId ? '<span class="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-500/40 text-[10px] font-bold">مستخدم ونشط</span>'
+                    : '<span class="px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">جاهز للتفعيل</span>'}
+                  <span class="px-2 py-0.5 rounded-full bg-slate-800 text-amber-300 border border-slate-700 text-[10px] font-bold">${item.planName} (${item.durationDays} يوم)</span>
+                  ${item.offlinePending ? '<span class="px-2 py-0.5 rounded-full bg-amber-950 text-amber-300 border border-amber-500/50 text-[10px] font-bold flex items-center gap-1"><span>⏳ بانتظار المزامنة</span></span>' : '<span class="text-[10px] text-emerald-400 font-mono" title="متزامن مع Firebase">☁️ متزامن</span>'}
+                </div>
+                <div class="flex items-center gap-3 text-[11px] text-slate-400 mt-1.5 flex-wrap">
+                  <span>الجهاز: <b class="font-mono text-cyan-300">${item.usedByDeviceId || item.targetDeviceId || 'أي جهاز (يرتبط عند أول تفعيل)'}</b></span>
+                  <span>الانتهاء: <b class="font-mono text-slate-300">${new Date(item.expiryDate).toLocaleDateString('ar-SA')}</b></span>
+                  ${!isExpired && !isRevoked ? `<span class="text-emerald-400 font-bold">متبقي: ${remDays} يوم و ${remHours} س</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-1.5 self-end md:self-center">
+              <button onclick="extendCode('${item.id}', 30)" class="px-2.5 py-1.5 rounded-xl bg-slate-800 hover:bg-emerald-950/60 hover:text-emerald-300 border border-slate-700 text-[11px] font-bold text-slate-300 transition-all cursor-pointer" title="تمديد 30 يوم">+30 يوم</button>
+              <button onclick="promptCustomExtend('${item.id}')" class="px-2 py-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950/70 hover:text-cyan-300 border border-slate-700 text-[11px] font-bold text-slate-300 transition-all cursor-pointer" title="تمديد بعدد أيام مخصص">+ أيام</button>
+              ${item.usedByDeviceId || item.targetDeviceId ? `<button onclick="unbindCode('${item.id}')" class="p-1.5 rounded-xl bg-slate-800 hover:bg-cyan-950 hover:text-cyan-300 border border-slate-700 text-slate-400 cursor-pointer" title="فك ارتباط الجهاز"><i data-lucide="unlock" class="w-4 h-4"></i></button>` : ''}
+              <button onclick="toggleRevokeCode('${item.id}', ${isRevoked})" class="p-1.5 rounded-xl bg-slate-800 border border-slate-700 ${isRevoked ? 'text-rose-400 hover:text-emerald-300' : 'text-slate-400 hover:text-rose-400'} cursor-pointer" title="${isRevoked ? 'تنشيط الكود' : 'حظر الكود'}"><i data-lucide="${isRevoked ? 'lock' : 'shield-alert'}" class="w-4 h-4"></i></button>
+              <button onclick="shareWhatsApp('${item.code}', '${item.planName}', ${item.durationDays}, '${item.usedByDeviceId || item.targetDeviceId || ''}', '${item.driverPhone || ''}', '${new Date(item.expiryDate).toLocaleDateString('ar-SA')}')" class="p-1.5 rounded-xl bg-slate-800 hover:bg-emerald-950 hover:text-emerald-300 border border-slate-700 text-slate-400 cursor-pointer" title="مشاركة عبر واتساب"><i data-lucide="send" class="w-4 h-4"></i></button>
+              <button onclick="deleteCode('${item.id}', '${item.code}')" class="p-1.5 rounded-xl bg-slate-800 hover:bg-rose-950 hover:text-rose-300 border border-slate-700 text-slate-400 cursor-pointer" title="حذف الكود"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+          </div>
+        `;
+      }).join('');
+      lucide.createIcons();
+    }
+
+    function renderActiveDevices(devices) {
+      const container = document.getElementById('active-devices-list');
+      if (!devices || devices.length === 0) {
+        container.innerHTML = '<span class="text-slate-500 text-[11px]">لا توجد أجهزة متصلة بالسيرفر حالياً</span>';
+        return;
+      }
+      container.innerHTML = devices.slice(0, 6).map(d => `
+        <button onclick="openCreateModal('${d.deviceId}')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-cyan-950 border border-slate-700 hover:border-cyan-500/50 text-[11px] font-mono text-cyan-300 transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap" title="إنشاء كود فوري لهذا الجهاز">
+          <span>${d.deviceId}</span>
+          <i data-lucide="plus" class="w-3 h-3 text-cyan-400"></i>
+        </button>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    function formatPlanName(days) {
+      if (days === 1) return 'تجربة يوم';
+      if (days === 2) return 'يومان';
+      if (days >= 3 && days <= 10) return `${days} أيام`;
+      if (days === 30) return 'شهر (30 يوم)';
+      if (days === 60) return 'شهرين (60 يوم)';
+      if (days === 90) return '3 أشهر (90 يوم)';
+      if (days === 180) return '6 أشهر (180 يوم)';
+      if (days === 365) return 'سنة (365 يوم)';
+      return `${days} يوم`;
+    }
+
+    function selectDuration(id, days, name) {
+      selectedDurationPlan = id;
+      selectedDurationDays = days;
+      selectedPlanName = name || formatPlanName(days);
+
+      const customInput = document.getElementById('form-custom-days');
+      if (customInput) customInput.value = days;
+
+      const badge = document.getElementById('duration-badge-preview');
+      if (badge) badge.innerText = `${selectedPlanName} (${days} يوم)`;
+
+      document.querySelectorAll('.dur-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-950/80', 'border-emerald-400', 'text-emerald-200', 'font-bold');
+        btn.classList.add('bg-[#151f38]', 'border-slate-700/80', 'text-slate-300');
+      });
+
+      const clicked = event ? event.currentTarget : null;
+      if (clicked) {
+        clicked.classList.remove('bg-[#151f38]', 'border-slate-700/80', 'text-slate-300');
+        clicked.classList.add('bg-emerald-950/80', 'border-emerald-400', 'text-emerald-200', 'font-bold');
+      }
+    }
+
+    function handleCustomDaysInput(val) {
+      let days = parseInt(val, 10);
+      if (isNaN(days) || days < 1) days = 1;
+      if (days > 3650) days = 3650;
+
+      selectedDurationDays = days;
+      selectedDurationPlan = `custom_${days}_days`;
+      selectedPlanName = formatPlanName(days);
+
+      const badge = document.getElementById('duration-badge-preview');
+      if (badge) badge.innerText = `${selectedPlanName} (${days} يوم)`;
+
+      // Unselect preset buttons if custom days don't match any preset
+      document.querySelectorAll('.dur-btn').forEach(btn => {
+        btn.classList.remove('bg-emerald-950/80', 'border-emerald-400', 'text-emerald-200', 'font-bold');
+        btn.classList.add('bg-[#151f38]', 'border-slate-700/80', 'text-slate-300');
+      });
+    }
+
+    function adjustCustomDays(delta) {
+      const customInput = document.getElementById('form-custom-days');
+      let current = parseInt(customInput.value, 10) || 30;
+      let next = Math.max(1, Math.min(3650, current + delta));
+      customInput.value = next;
+      handleCustomDaysInput(next);
+    }
+
+    function setExactCustomDays(days) {
+      const customInput = document.getElementById('form-custom-days');
+      if (customInput) customInput.value = days;
+      handleCustomDaysInput(days);
+    }
+
+    function promptCustomExtend(id) {
+      const codeObj = allCodes.find(c => c.id === id);
+      if (!codeObj) return;
+      const input = prompt(`تمديد كود الاشتراك (${codeObj.code}):\nأدخل عدد الأيام الإضافية المراد إضافتها للاشتراك:`, '30');
+      if (!input) return;
+      const days = parseInt(input, 10);
+      if (isNaN(days) || days <= 0) {
+        showToast('يرجى إدخال عدد أيام صحيح أكبر من الصفر');
+        return;
+      }
+      extendCode(id, days);
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        if (btn.getAttribute('data-filter') === filter) {
+          btn.className = 'filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-cyan-500 text-slate-950';
+        } else {
+          btn.className = 'filter-btn px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-white';
+        }
+      });
+      renderCodesList();
+    }
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast('تم نسخ الكود بنجاح: ' + text);
+      }).catch(() => {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('تم نسخ الكود: ' + text);
+      });
+    }
+
+    function shareWhatsApp(code, planName, days, deviceId, phone, expiryDate) {
+      const cleanPhone = (phone || '').replace(/[^0-9]/g, '');
+      const msg = `مرحباً بك! كود تفعيل اشتراكك في Locate Go هو:
+🔑 الكود: ${code}
+⏱️ الباقة: ${planName} (${days} يوم)
+📱 معرف الجهاز المرتبط: ${deviceId || 'أي جهاز (يرتبط عند أول تفعيل)'}
+📅 تاريخ الصلاحية: ${expiryDate}
+
+يرجى فتح التطبيق ولصق الكود في خانة التفعيل.`;
+
+      const encoded = encodeURIComponent(msg);
+      const url = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encoded}` : `https://wa.me/?text=${encoded}`;
+      window.open(url, '_blank');
+    }
+
+    // ----------------------------------------------------
+    // CONFIGURATION MODAL & BACKUP TOOLS
+    // ----------------------------------------------------
+    function toggleServerConfigModal() {
+      const modal = document.getElementById('config-modal');
+      modal.classList.toggle('hidden');
+      document.getElementById('config-firebase-url').value = currentFirebaseUrl;
+      document.getElementById('config-server-url').value = currentServerUrl;
+      document.getElementById('config-admin-key').value = currentAdminKey;
+      const radio = document.querySelector(`input[name="operatingMode"][value="${currentMode}"]`);
+      if (radio) radio.checked = true;
+      lucide.createIcons();
+    }
+
+    function toggleKeyVisibility() {
+      const input = document.getElementById('config-admin-key');
+      const icon = document.getElementById('toggle-key-icon');
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('data-lucide', 'eye-off');
+      } else {
+        input.type = 'password';
+        icon.setAttribute('data-lucide', 'eye');
+      }
+      lucide.createIcons();
+    }
+
+    function saveAllConfig() {
+      const fbUrl = document.getElementById('config-firebase-url').value.trim();
+      const srvUrl = document.getElementById('config-server-url').value.trim();
+      const admKey = document.getElementById('config-admin-key').value.trim();
+      const mode = document.querySelector('input[name="operatingMode"]:checked')?.value || 'hybrid';
+
+      if (fbUrl) {
+        currentFirebaseUrl = fbUrl;
+        localStorage.setItem(STORAGE_KEYS.FIREBASE_URL, fbUrl);
+      }
+      if (srvUrl) {
+        currentServerUrl = srvUrl;
+        localStorage.setItem(STORAGE_KEYS.SERVER_URL, srvUrl);
+      }
+      if (admKey) {
+        currentAdminKey = admKey;
+        localStorage.setItem(STORAGE_KEYS.ADMIN_KEY, admKey);
+      }
+      currentMode = mode;
+      localStorage.setItem(STORAGE_KEYS.MODE, mode);
+
+      showToast('تم حفظ الإعدادات بنجاح');
+      toggleServerConfigModal();
+      syncAllData();
+    }
+
+    function resetDefaultConfig() {
+      currentFirebaseUrl = DEFAULT_FIREBASE_URL;
+      currentServerUrl = DEFAULT_SERVER_URL;
+      currentAdminKey = DEFAULT_ADMIN_KEY;
+      currentMode = 'hybrid';
+
+      localStorage.removeItem(STORAGE_KEYS.FIREBASE_URL);
+      localStorage.removeItem(STORAGE_KEYS.SERVER_URL);
+      localStorage.removeItem(STORAGE_KEYS.ADMIN_KEY);
+      localStorage.removeItem(STORAGE_KEYS.MODE);
+
+      document.getElementById('config-firebase-url').value = DEFAULT_FIREBASE_URL;
+      document.getElementById('config-server-url').value = DEFAULT_SERVER_URL;
+      document.getElementById('config-admin-key').value = DEFAULT_ADMIN_KEY;
+      const r = document.querySelector('input[name="operatingMode"][value="hybrid"]');
+      if (r) r.checked = true;
+
+      showToast('تمت استعادة الإعدادات الافتراضية');
+      syncAllData();
+    }
+
+    async function testFirebaseConnection() {
+      const inputUrl = document.getElementById('config-firebase-url').value.trim() || currentFirebaseUrl;
+      const cleanUrl = inputUrl.replace(/\/+$/, '');
+      try {
+        const start = Date.now();
+        const res = await fetch(`${cleanUrl}/activation_codes.json?shallow=true`);
+        const elapsed = Date.now() - start;
+        if (res.ok) {
+          alert(`✅ الاتصال بقاعدة بيانات فايربيس ناجح ومستقر!\nزمن الاستجابة: ${elapsed}ms\nالرابط: ${cleanUrl}`);
+        } else {
+          alert(`⚠️ ردت قاعدة بيانات فايربيس بالرمز: ${res.status}\nتأكد من قواعد الحماية أو صلاحيات القراءة.`);
+        }
+      } catch (err) {
+        alert(`❌ فشل الاتصال بقاعدة بيانات فايربيس:\n${err.message}\nتأكد من اتصال الإنترنت وصحة الرابط.`);
+      }
+    }
+
+    function exportOfflineJsonBackup() {
+      const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify({
+        exportedAt: new Date().toISOString(),
+        totalCodes: allCodes.length,
+        firebaseUrl: currentFirebaseUrl,
+        codes: allCodes
+      }, null, 2));
+      const a = document.createElement('a');
+      a.setAttribute('href', dataStr);
+      a.setAttribute('download', `locatego_firebase_backup_${new Date().toISOString().slice(0, 10)}.json`);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      showToast('تم تصدير النسخة الاحتياطية بنجاح');
+    }
+
+    function handleImportJson(e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async function(evt) {
+        try {
+          const parsed = JSON.parse(evt.target.result);
+          const rawList = Array.isArray(parsed) ? parsed : (parsed.codes || []);
+          if (!Array.isArray(rawList)) throw new Error('الملف لا يحتوي على مصفوفة أكواد صحيحة');
+
+          let importedCount = 0;
+          rawList.forEach(raw => {
+            const norm = normalizeCodeObject(raw);
+            if (norm && !allCodes.some(c => c.code === norm.code)) {
+              allCodes.unshift(norm);
+              enqueueOfflineAction('CREATE', norm.id, norm);
+              importedCount++;
+            }
+          });
+
+          saveOfflineCache(allCodes);
+          calculateAndUpdateStats();
+          renderCodesList();
+          showToast(`تم استيراد ${importedCount} كود جديد بنجاح`);
+          syncAllData();
+        } catch (err) {
+          alert('فشل قراءة ملف النسخة الاحتياطية: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // ----------------------------------------------------
+    // INITIALIZATION & EVENT LISTENERS
+    // ----------------------------------------------------
+    window.addEventListener('online', () => {
+      showToast('📶 تم استعادة الاتصال بالإنترنت - جاري المزامنة مع فايربيس');
+      syncAllData();
+    });
+
+    window.addEventListener('offline', () => {
+      setConnectionState(false, 'وضع أوفلاين (مخزن محلياً)');
+      updateQueueBadge();
+      showToast('⚠️ انقطع الاتصال بالإنترنت - تفعيل وضع قاعدة البيانات الأوفلاين');
+    });
+
+    window.onload = () => {
+      // 1. Instant 0ms load from Offline Cache
+      allCodes = loadOfflineCache();
+      calculateAndUpdateStats();
+      renderCodesList();
+      updateQueueBadge();
+
+      // 2. Set initial connection state based on navigator.onLine
+      setConnectionState(navigator.onLine, navigator.onLine ? 'جاري الاتصال بفايربيس...' : 'وضع أوفلاين (مخزن محلياً)');
+
+      // 3. Trigger initial live sync with Firebase & Server
+      syncAllData();
+      lucide.createIcons();
+    };
+  </script>
+</body>
+</html>

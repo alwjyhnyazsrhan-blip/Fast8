@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">Locate Go</string>
+    <string name="accessibility_service_label">Locate Go - مساعد مناديب التوصيل</string>
+    <string name="accessibility_service_description">يقوم برصد شاشة عروض التوصيل، وقراءة المسافة بدقة والتحقق منها جغرافياً، وتنفيذ القبول التلقائي للطلبات في نطاق 2 كم عبر سيرفر Render فائق السرعة.</string>
+    <string name="location_service_channel_name">خدمة التتبع الجغرافي النشطة</string>
+    <string name="location_service_channel_desc">تتبع الموقع الحي للمندوب لحساب المسافات الجغرافية وقبول الطلبات القريبة فوراً.</string>
+</resources>

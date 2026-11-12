@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "updatedAt": "2026-11-07T14:11:32.978Z",
+  "devices": {
+    "AND-419E-DB58": {
+      "deviceId": "AND-419E-DB58",
+      "registeredAt": "2026-11-07T13:23:15.577Z",
+      "lastActiveAt": "2026-11-07T14:11:32.827Z",
+      "isRunning": false,
+      "settings": {
+        "maxDistanceKm": 3.0,
+        "maxPickupDistanceKm": 1.5,
+        "autoAccept": true,
+        "soundAlerts": false,
+        "minPayoutSar": 0,
+        "vibrationFeedback": true,
+        "swipeSpeedMs": 100,
+        "tapIntervalMs": 10,
+        "enableCustomInterval": false
+      },
+      "driverLocation": null,
+      "orders": []
+    }
+  }
+}

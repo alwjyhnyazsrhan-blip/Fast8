@@ -1,0 +1,11 @@
+{
+  "projectId": "appprotector-79e9c",
+  "appId": "1:266056410603:android:be91df7af21881c3ab25ae",
+  "apiKey": "AIzaSyCyvsNBvrxNQpeBrG3Wtg7XA0Kj4uLgTW4",
+  "authDomain": "appprotector-79e9c.firebaseapp.com",
+  "databaseURL": "https://appprotector-79e9c-default-rtdb.firebaseio.com",
+  "storageBucket": "appprotector-79e9c.firebasestorage.app",
+  "messagingSenderId": "266056410603",
+  "measurementId": "",
+  "packageName": "sa.lg.android.locatg"
+}

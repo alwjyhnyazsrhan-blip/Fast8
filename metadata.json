@@ -1,0 +1,6 @@
+{
+  "name": "Locate Go",
+  "description": "خادم وواجهة أداة Locate Go الحقيقية لمناديب التوصيل للتحقق الجغرافي وتصفية المسافات المباشرة",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
