@@ -116,7 +116,7 @@ export default function App() {
           maxPickupDistanceKm: typeof parsed.maxPickupDistanceKm === 'number' && parsed.maxPickupDistanceKm > 0 ? parsed.maxPickupDistanceKm : 1.5,
           autoAccept: parsed.autoAccept ?? true,
           soundAlerts: parsed.soundAlerts ?? true,
-          vibrationFeedback: parsed.vibrationFeedback ?? true,
+          vibrationFeedback: false,
           swipeSpeedMs: parsed.swipeSpeedMs ?? 60,
           tapIntervalMs: parsed.tapIntervalMs ?? 10,
           enableCustomInterval: parsed.enableCustomInterval ?? false,
@@ -128,7 +128,7 @@ export default function App() {
       maxPickupDistanceKm: 1.5,
       autoAccept: true,
       soundAlerts: true,
-      vibrationFeedback: true,
+      vibrationFeedback: false,
       swipeSpeedMs: 60,
       tapIntervalMs: 10,
       enableCustomInterval: false,
@@ -566,7 +566,7 @@ export default function App() {
             autoAccept: parsed.autoAccept ?? prev.autoAccept,
             soundAlerts: parsed.soundAlerts ?? prev.soundAlerts,
             minPayoutSar: parsed.minPayoutSar ?? prev.minPayoutSar,
-            vibrationFeedback: parsed.vibrationFeedback ?? prev.vibrationFeedback,
+            vibrationFeedback: false,
             swipeSpeedMs: parsed.swipeSpeedMs ?? prev.swipeSpeedMs ?? 100,
             tapIntervalMs: parsed.tapIntervalMs ?? prev.tapIntervalMs ?? 10,
             enableCustomInterval: parsed.enableCustomInterval ?? prev.enableCustomInterval ?? false,
@@ -1174,7 +1174,7 @@ export default function App() {
         onToggleSound={() => {
           const nextSound = !soundEnabled;
           setSoundEnabled(nextSound);
-          handleUpdateSettings({ soundAlerts: nextSound, vibrationFeedback: nextSound });
+          handleUpdateSettings({ soundAlerts: nextSound, vibrationFeedback: false });
           if (nextSound) {
             soundManager.playStart();
           }

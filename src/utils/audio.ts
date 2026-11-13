@@ -1,4 +1,4 @@
-// Web Audio API feedback for driver HUD
+// Web Audio API feedback for driver HUD (single crisp gesture tone, silent on rejection)
 class SoundManager {
   private ctx: AudioContext | null = null;
 
@@ -30,7 +30,7 @@ class SoundManager {
       osc.type = type;
       osc.frequency.setValueAtTime(freq, now);
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.exponentialRampToValueAtTime(gainVal, now + 0.015);
+      gain.gain.exponentialRampToValueAtTime(gainVal, now + 0.01);
       gain.gain.exponentialRampToValueAtTime(0.001, now + durationSec);
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -40,23 +40,20 @@ class SoundManager {
   }
 
   public playStart() {
-    this.playTone(587.33, 0.12, 0, 'triangle', 0.22);
-    this.playTone(880, 0.16, 0.11, 'triangle', 0.24);
+    this.playTone(740, 0.09, 0, 'triangle', 0.2);
   }
 
   public playStop() {
-    this.playTone(523.25, 0.12, 0, 'sine', 0.18);
-    this.playTone(349.23, 0.18, 0.11, 'sine', 0.16);
+    this.playTone(440, 0.09, 0, 'sine', 0.16);
   }
 
   public playAccepted() {
-    this.playTone(880, 0.11, 0, 'triangle', 0.25);
-    this.playTone(1174.66, 0.18, 0.1, 'triangle', 0.28);
+    // Single short tone only (no double/repetitive chime)
+    this.playTone(980, 0.085, 0, 'triangle', 0.22);
   }
 
   public playRejected() {
-    this.playTone(300, 0.12, 0, 'sawtooth', 0.1);
-    this.playTone(220, 0.15, 0.1, 'sawtooth', 0.09);
+    // Silent on rejection
   }
 }
 

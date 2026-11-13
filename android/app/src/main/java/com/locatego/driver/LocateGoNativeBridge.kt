@@ -31,7 +31,7 @@ class LocateGoNativeBridge(private val activity: MainActivity) {
             put("autoAccept", prefs.getBoolean("auto_accept", true))
             put("soundAlerts", prefs.getBoolean("sound_alerts", true))
             put("minPayoutSar", prefs.getFloat("min_payout_sar", 0.0f).toDouble())
-            put("vibrationFeedback", prefs.getBoolean("vibration_feedback", true))
+            put("vibrationFeedback", false)
             put("swipeSpeedMs", prefs.getInt("swipe_speed_ms", 100))
             put("tapIntervalMs", prefs.getInt("tap_interval_ms", 10))
             put("enableCustomInterval", prefs.getBoolean("enable_custom_interval", false))

@@ -10,8 +10,6 @@ import android.graphics.Rect
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.os.Build
-import android.os.VibrationEffect
-import android.os.Vibrator
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
@@ -129,10 +127,11 @@ class LocateGoAccessibilityService : AccessibilityService() {
     @Volatile private var cachedMinPayoutSar: Double = 0.0
     @Volatile private var cachedAutoAccept: Boolean = true
     @Volatile private var cachedSoundAlerts: Boolean = true
-    @Volatile private var cachedVibrationFeedback: Boolean = true
     @Volatile private var cachedSwipeSpeedMs: Long = 60L   // سرعة سحب فائقة السرعة
     @Volatile private var cachedTapIntervalMs: Long = 10L  // فاصل النقرات المتتالية (ms)
     @Volatile private var cachedEnableCustomInterval: Boolean = false
+    @Volatile private var lastGestureToneAtMs: Long = 0L
+    @Volatile private var lastGestureToneOrderKey: String = ""
 
     // تعابير نمطية مستهدفة بدقة عالية تدعم صيغتي: "المتجر 2.0 كم" وأيضاً "2.0 كم المتجر" والأرقام العربية
     private val pickupDistancePattern = Pattern.compile(
@@ -211,7 +210,6 @@ class LocateGoAccessibilityService : AccessibilityService() {
         cachedMinPayoutSar = prefs.getFloat("min_payout_sar", 0.0f).toDouble()
         cachedAutoAccept = prefs.getBoolean("auto_accept", true)
         cachedSoundAlerts = prefs.getBoolean("sound_alerts", true)
-        cachedVibrationFeedback = prefs.getBoolean("vibration_feedback", true)
         cachedSwipeSpeedMs = prefs.getInt("swipe_speed_ms", 60).toLong().coerceIn(30L, 500L)
         cachedTapIntervalMs = prefs.getInt("tap_interval_ms", 10).toLong()
         cachedEnableCustomInterval = prefs.getBoolean("enable_custom_interval", false)
@@ -229,7 +227,6 @@ class LocateGoAccessibilityService : AccessibilityService() {
                 "min_payout_sar" -> cachedMinPayoutSar = sp.getFloat("min_payout_sar", 0.0f).toDouble()
                 "auto_accept" -> cachedAutoAccept = sp.getBoolean("auto_accept", true)
                 "sound_alerts" -> cachedSoundAlerts = sp.getBoolean("sound_alerts", true)
-                "vibration_feedback" -> cachedVibrationFeedback = sp.getBoolean("vibration_feedback", true)
                 "swipe_speed_ms" -> cachedSwipeSpeedMs = sp.getInt("swipe_speed_ms", 60).toLong().coerceIn(30L, 500L)
                 "tap_interval_ms" -> cachedTapIntervalMs = sp.getInt("tap_interval_ms", 10).toLong()
                 "enable_custom_interval" -> cachedEnableCustomInterval = sp.getBoolean("enable_custom_interval", false)
@@ -480,7 +477,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
         // منع التكرار لنفس الطلب
         val deduplicationKey = "${extractedOrderId ?: ""}|$deliveryDistKm|$pickupDistKm|$storeName"
         val now = System.currentTimeMillis()
-        if (processedOrdersCache[deduplicationKey]?.let { now - it < 750 } == true) return
+        if (processedOrdersCache[deduplicationKey]?.let { now - it < 1500 } == true) return
 
         // =========================================================================
         // القواعد الصارمة والقطعية للموافقة على الطلب (Fail-Closed):
@@ -527,7 +524,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
                 "⚡⚡ STRICT AUTO-ACCEPT SUCCESS! [Triggered=$swipeSuccess] App='$resolvedAppName' Store='$storeName' | Pickup: ${pickupDistKm ?: "N/A"} km (limit $maxAllowedPickup) | Delivery: $deliveryDistKm km (limit $maxAllowedDelivery)"
             )
 
-            notifyDriverAcceptedAsync()
+            if (swipeSuccess) {
+                notifyDriverAcceptedAsync(deduplicationKey)
+            }
 
             serviceScope.launch {
                 renderClient.evaluateOrder(
@@ -954,64 +953,32 @@ class LocateGoAccessibilityService : AccessibilityService() {
         }
     }
 
-    private fun notifyDriverAcceptedAsync() {
-        if (cachedVibrationFeedback) {
-            try {
-                @Suppress("DEPRECATION")
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 90, 55, 110), -1))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(longArrayOf(0, 90, 55, 110), -1)
-                }
-            } catch (_: Exception) {}
-        }
+    private fun notifyDriverAcceptedAsync(orderKey: String = "") {
+        if (!cachedSoundAlerts) return
 
-        if (cachedSoundAlerts) {
-            serviceScope.launch {
-                var toneGen: ToneGenerator? = null
-                try {
-                    toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-                    toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 180)
-                    delay(210)
-                    toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
-                    delay(200)
-                } catch (_: Exception) {
-                } finally {
-                    try { toneGen?.release() } catch (_: Exception) {}
-                }
+        val now = System.currentTimeMillis()
+        // منع التكرار: نغمة واحدة قصيرة فقط لحظة السحب/النقر (لا تتكرر لنفس الطلب ولا تشتغل بشكل متواصل)
+        if (now - lastGestureToneAtMs < 2000L) return
+        if (orderKey.isNotEmpty() && orderKey == lastGestureToneOrderKey && now - lastGestureToneAtMs < 6000L) return
+
+        lastGestureToneAtMs = now
+        lastGestureToneOrderKey = orderKey
+
+        serviceScope.launch {
+            var toneGen: ToneGenerator? = null
+            try {
+                toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 95)
+                toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 85)
+                delay(110)
+            } catch (_: Exception) {
+            } finally {
+                try { toneGen?.release() } catch (_: Exception) {}
             }
         }
     }
 
     private fun notifyDriverRejectedAsync() {
-        if (cachedVibrationFeedback) {
-            try {
-                @Suppress("DEPRECATION")
-                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    vibrator?.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE))
-                } else {
-                    @Suppress("DEPRECATION")
-                    vibrator?.vibrate(45)
-                }
-            } catch (_: Exception) {}
-        }
-
-        if (cachedSoundAlerts) {
-            serviceScope.launch {
-                var toneGen: ToneGenerator? = null
-                try {
-                    toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
-                    toneGen.startTone(ToneGenerator.TONE_PROP_NACK, 150)
-                    delay(180)
-                } catch (_: Exception) {
-                } finally {
-                    try { toneGen?.release() } catch (_: Exception) {}
-                }
-            }
-        }
+        // صامت تماماً: لا صوت ولا اهتزاز عند الرفض أو المراقبة
     }
 
     override fun onDestroy() {
