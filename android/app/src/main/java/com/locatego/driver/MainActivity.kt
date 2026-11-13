@@ -165,6 +165,7 @@ class MainActivity : AppCompatActivity() {
                         getSharedPreferences("locate_go_prefs", Context.MODE_PRIVATE)
                             .edit()
                             .putBoolean("is_vip_licensed", true)
+                            .putBoolean("auto_accept", true)
                             .apply()
 
                         Toast.makeText(this@MainActivity, "👑 تم قبول كود VIP وفتح التطبيق بنجاح!", Toast.LENGTH_SHORT).show()
@@ -373,6 +374,32 @@ class MainActivity : AppCompatActivity() {
             notificationManager?.cancel(LocationTrackingService.NOTIFICATION_ID)
             notificationManager?.cancelAll()
         } catch (e: Exception) {}
+    }
+
+    /**
+     * إيقاف خدمات التتبع والنافذة العائمة مؤقتاً بدون إلغاء ترخيص VIP
+     */
+    fun pauseTrackingServices() {
+        stopLocationService()
+
+        try {
+            stopService(Intent(this, FloatingOverlayService::class.java))
+        } catch (e: Exception) {}
+
+        try {
+            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+            notificationManager?.cancel(LocationTrackingService.NOTIFICATION_ID)
+            notificationManager?.cancelAll()
+        } catch (e: Exception) {}
+
+        try {
+            getSharedPreferences("locate_go_prefs", Context.MODE_PRIVATE)
+                .edit()
+                .putBoolean("auto_accept", false)
+                .apply()
+        } catch (e: Exception) {}
+
+        syncStateToWeb()
     }
 
     /**

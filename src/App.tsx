@@ -849,9 +849,17 @@ export default function App() {
       isMonitoringScreen: nextRunning,
     }));
 
-    // If running in Android App, notify native layer
+    // If running in Android App, notify native layer and sync latest settings
     const bridge = getNativeBridge();
     if (bridge) {
+      if (nextRunning) {
+        const syncedSettings = { ...settings, autoAccept: true };
+        setSettings(syncedSettings);
+        try {
+          localStorage.setItem('locatego_settings', JSON.stringify(syncedSettings));
+        } catch {}
+        bridge.saveSettings(JSON.stringify(syncedSettings));
+      }
       bridge.setTrackingActive(nextRunning);
     }
 

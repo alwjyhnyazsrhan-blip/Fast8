@@ -122,11 +122,13 @@ class LocateGoNativeBridge(private val activity: MainActivity) {
                     activity.killAllBackgroundServicesAndNotifications()
                     return@runOnUiThread
                 }
+                prefs.edit().putBoolean("auto_accept", true).apply()
                 activity.startLocationService()
                 Toast.makeText(activity, "⚡ تم تفعيل أداة التتبع والمراقبة بنجاح", Toast.LENGTH_SHORT).show()
             } else {
-                activity.killAllBackgroundServicesAndNotifications()
-                Toast.makeText(activity, "🛑 تم إيقاف وقتل كافة الخدمات وإزالة الإشعارات", Toast.LENGTH_SHORT).show()
+                prefs.edit().putBoolean("auto_accept", false).apply()
+                activity.pauseTrackingServices()
+                Toast.makeText(activity, "🛑 تم إيقاف المراقبة والقبول التلقائي", Toast.LENGTH_SHORT).show()
             }
             activity.syncStateToWeb()
         }

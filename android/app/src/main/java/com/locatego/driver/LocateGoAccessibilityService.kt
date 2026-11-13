@@ -134,27 +134,27 @@ class LocateGoAccessibilityService : AccessibilityService() {
 
     // تعابير نمطية مستهدفة بدقة عالية تدعم صيغتي: "المتجر 2.0 كم" وأيضاً "2.0 كم المتجر" والأرقام العربية
     private val pickupDistancePattern = Pattern.compile(
-        "(?:(?:مسافة\\s*(?:المتجر|المطعم|الاستلام)|المتجر\\s*يبعد|المطعم\\s*يبعد|مسافة\\s*الاستلام|الاستلام|المطعم|المتجر|pickup|store)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:المتجر|المطعم|الاستلام|pickup|store))",
+        "(?:(?:مسافة\\s*(?:المتجر|المطعم|الاستلام)|المتجر\\s*يبعد|المطعم\\s*يبعد|مسافة\\s*الاستلام|الاستلام|المطعم|المتجر|pickup|store)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:المتجر|المطعم|الاستلام|pickup|store))",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val deliveryDistancePattern = Pattern.compile(
-        "(?:(?:مسافة\\s*(?:العميل|التوصيل|الوجهة)|العميل\\s*يبعد|مسافة\\s*التوصيل|التوصيل|العميل|الوجهة|delivery|dropoff|customer)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:العميل|التوصيل|الوجهة|delivery|dropoff|customer))",
+        "(?:(?:مسافة\\s*(?:العميل|التوصيل|الوجهة)|العميل\\s*يبعد|مسافة\\s*التوصيل|التوصيل|العميل|الوجهة|delivery|dropoff|customer)\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)|([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)\\s*[:]?\\s*(?:العميل|التوصيل|الوجهة|delivery|dropoff|customer))",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val generalDistancePattern = Pattern.compile(
-        "(?:المسافة\\s*الإجمالية|إجمالي\\s*المسافة|المسافة\\s*الكلية|المسافة|يبعد|تبعد|distance|total)?\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)",
+        "(?:المسافة\\s*الإجمالية|إجمالي\\s*المسافة|المسافة\\s*الكلية|المسافة|يبعد|تبعد|distance|total)?\\s*[:]?\\s*([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو|km|k\\.m)",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val kmRegexPattern = Pattern.compile(
-        "([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو\\s*متر|كيلو|km|k\\.m)",
+        "([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:كم|كيلو\\s*متر|كيلو|km|k\\.m)",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
     private val meterRegexPattern = Pattern.compile(
-        "(?:^|[\\s:(])([0-9\\u0660-\\u0669]+(?:[.,][0-9\\u0660-\\u0669]+)?)\\s*(?:متر|meters?|م|m)(?=$|[\\s،,.):])",
+        "(?:^|[\\s:(])([0-9\\u0660-\\u0669]+(?:[.,\\u066B][0-9\\u0660-\\u0669]+)?)\\s*(?:متر|meters?|م|m)(?=$|[\\s،,.):])",
         Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE
     )
 
@@ -183,7 +183,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
         // 1. تهيئة خدمة Accessibility بأقصى سرعة ممكنة وبدون أي تأخير (Zero Throttling)
         val info = serviceInfo ?: AccessibilityServiceInfo()
         info.notificationTimeout = 0L // إلغاء أي مؤقت تأخير بين إشعارات الأحداث نهائياً
-        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED
+        info.eventTypes = AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED or
+                AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED or
+                AccessibilityEvent.TYPE_WINDOWS_CHANGED
         info.feedbackType = AccessibilityServiceInfo.FEEDBACK_GENERIC
         info.flags = info.flags or
                 AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
@@ -258,10 +260,27 @@ class LocateGoAccessibilityService : AccessibilityService() {
 
         val type = event.eventType
         if (type != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED &&
-            type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+            type != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            type != AccessibilityEvent.TYPE_WINDOWS_CHANGED) return
 
-        val root = rootInActiveWindow ?: event.source ?: return
-        inspectScreenForOrderOffer(root, packageName)
+        val rootsToScan = mutableListOf<AccessibilityNodeInfo>()
+        try {
+            windows?.forEach { win ->
+                val winRoot = win.root ?: return@forEach
+                val winPkg = winRoot.packageName?.toString()
+                if (winPkg == null || winPkg == packageName || isTargetPackage(winPkg)) {
+                    rootsToScan.add(winRoot)
+                }
+            }
+        } catch (_: Exception) {}
+
+        val activeRoot = rootInActiveWindow ?: event.source
+        if (activeRoot != null && rootsToScan.none { it == activeRoot }) {
+            rootsToScan.add(activeRoot)
+        }
+        if (rootsToScan.isEmpty()) return
+
+        inspectScreenForOrderOffer(rootsToScan, packageName)
     }
 
     private data class CapturedDistance(
@@ -278,6 +297,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
         val capturedDistances: MutableList<CapturedDistance> = mutableListOf(),
         var acceptButtonNode: AccessibilityNodeInfo? = null,
         var acceptButtonBounds: Rect? = null,
+        var acceptButtonPriority: Int = 0,
         var directDeliveryKm: Double? = null,
         var directPickupKm: Double? = null,
         var directPayoutSar: Double? = null,
@@ -288,21 +308,58 @@ class LocateGoAccessibilityService : AccessibilityService() {
         var hasCustomerLabel: Boolean = false
     )
 
+    private fun findAcceptNodeFallback(roots: List<AccessibilityNodeInfo>, displayHeight: Int): AccessibilityNodeInfo? {
+        for (root in roots) {
+            for (keyword in ALL_ACCEPT_KEYWORDS) {
+                val nodes = try { root.findAccessibilityNodeInfosByText(keyword) } catch (_: Exception) { emptyList() }
+                for (node in nodes) {
+                    val b = Rect()
+                    node.getBoundsInScreen(b)
+                    val txt = (node.text?.toString() ?: node.contentDescription?.toString() ?: "").lowercase()
+                    val isBlacklisted = txt.contains("reject") || txt.contains("رفض") || txt.contains("إلغاء") || txt.contains("تجاهل") || txt.contains("cancel")
+                    if (!isBlacklisted && !b.isEmpty && b.width() > 50 && b.centerY() >= displayHeight * 0.20f) {
+                        return node
+                    }
+                }
+            }
+            for (viewId in ACCEPT_VIEW_IDS) {
+                val fullId = "${currentForegroundPackage}:id/$viewId"
+                val nodes = try { root.findAccessibilityNodeInfosByViewId(fullId) } catch (_: Exception) { emptyList() }
+                for (node in nodes) {
+                    val b = Rect()
+                    node.getBoundsInScreen(b)
+                    if (!b.isEmpty && b.width() > 50 && b.centerY() >= displayHeight * 0.20f) {
+                        return node
+                    }
+                }
+            }
+        }
+        return null
+    }
+
     /**
      * فحص الشاشة بدقة فائقة وبصرامة تامة (Strict Fail-Closed Verification):
      * - يمنع القبول نهائياً إذا لم يظهر زر/شريط القبول على الشاشة.
      * - يمنع القبول نهائياً إذا لم تُقرأ المسافات كاملة بعد (ينتظر التحديث التالي بعد لحظات).
      * - يرفض أي طلب يتجاوز حد المتجر أو حد العميل مهما كانت الظروف.
      */
-    private fun inspectScreenForOrderOffer(root: AccessibilityNodeInfo, packageName: String) {
+    private fun inspectScreenForOrderOffer(roots: List<AccessibilityNodeInfo>, packageName: String) {
         val displayHeight = resources.displayMetrics.heightPixels
         val scanResult = FastScanResult()
 
-        // دورة مسح واحدة تجمع النصوص والمسافات ومواقعها وترصد زر القبول
-        fastSinglePassTraversal(root, scanResult, displayHeight)
+        // دورة مسح واحدة تجمع النصوص والمسافات ومواقعها وترصد زر القبول من جميع النوافذ النشطة
+        for (r in roots) {
+            fastSinglePassTraversal(r, scanResult, displayHeight)
+        }
 
-        // إذا لم يوجد زر أو شريط قبول على الشاشة، لا نتخذ أي إجراء (مثل شاشات الطلبات المقبولة مسبقاً)
-        val targetAcceptNode = scanResult.acceptButtonNode ?: return
+        // محاولة بديلة لاكتشاف شريط أو زر القبول إذا كان داخل عنصر مخصص
+        val targetAcceptNode = scanResult.acceptButtonNode ?: findAcceptNodeFallback(roots, displayHeight)?.also { node ->
+            val b = Rect()
+            node.getBoundsInScreen(b)
+            scanResult.acceptButtonNode = node
+            scanResult.acceptButtonBounds = b
+        } ?: return
+
         if (scanResult.texts.isEmpty()) return
 
         val joinedContent = scanResult.texts.joinToString(" ")
@@ -313,9 +370,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
 
         // 2. عزل المسافات الخاصة ببطاقة العرض الحالية (الأقرب والأعلى مباشرة من شريط/زر القبول)
         val acceptBounds = scanResult.acceptButtonBounds
-        val scopedDistances: List<CapturedDistance> = if (scanResult.capturedDistances.size > 2 && acceptBounds != null) {
+        val scopedDistances: List<CapturedDistance> = if (scanResult.capturedDistances.size > 2 && acceptBounds != null && !acceptBounds.isEmpty) {
             val aboveAccept = scanResult.capturedDistances
-                .filter { it.bounds.bottom <= acceptBounds.bottom + 80 }
+                .filter { it.bounds.bottom <= acceptBounds.bottom + 100 }
                 .sortedByDescending { it.bounds.centerY() }
             if (aboveAccept.size >= 2) aboveAccept.take(2) else scanResult.capturedDistances
         } else {
@@ -328,7 +385,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
         var deliveryDistKm: Double? = scanResult.directDeliveryKm
         var pickupDistKm: Double? = scanResult.directPickupKm
 
-        val isDualLayoutCard = scanResult.hasUserLabel && scanResult.hasStoreLabel
+        val isDualLayoutCard = scanResult.hasUserLabel && (scanResult.storeLabelX != null || scanResult.hasStoreLabel)
 
         if (scopedDistances.size >= 2) {
             val userX = scanResult.userLabelX
@@ -517,8 +574,10 @@ class LocateGoAccessibilityService : AccessibilityService() {
     private fun fastSinglePassTraversal(node: AccessibilityNodeInfo?, result: FastScanResult, displayHeight: Int) {
         if (node == null) return
 
-        val text = node.text?.toString()?.trim()
-        val desc = node.contentDescription?.toString()?.trim()
+        val rawText = node.text?.toString()
+        val rawDesc = node.contentDescription?.toString()
+        val text = rawText?.replace(Regex("[\\u200B-\\u200F\\uFEFF\\u202A-\\u202E]"), "")?.trim()
+        val desc = rawDesc?.replace(Regex("[\\u200B-\\u200F\\uFEFF\\u202A-\\u202E]"), "")?.trim()
         val viewId = node.viewIdResourceName?.lowercase() ?: ""
 
         val rawContent = when {
@@ -527,35 +586,48 @@ class LocateGoAccessibilityService : AccessibilityService() {
             else -> null
         }
 
-        // 1. فحص زر القبول أو شريط السحب فوراً
-        if (result.acceptButtonNode == null) {
-            val isAcceptId = ACCEPT_VIEW_IDS.any { viewId.endsWith(it) || viewId.contains(it) }
-            val isAcceptKeyword = rawContent != null && ALL_ACCEPT_KEYWORDS.any { rawContent.contains(it, ignoreCase = true) }
+        // 1. فحص زر القبول أو شريط السحب مع إعطاء أعلى أولوية لشريط السحب الصريح ثم أزرار القبول المباشرة
+        val isSliderKeyword = rawContent != null && ACCEPT_SLIDER_KEYWORDS.any { rawContent.contains(it, ignoreCase = true) }
+        val isDirectAcceptKeyword = !isSliderKeyword && rawContent != null && ACCEPT_DIRECT_BUTTON_KEYWORDS.any { rawContent.contains(it, ignoreCase = true) }
+        val isSpecificAcceptId = ACCEPT_VIEW_IDS.any { id -> id != "slider" && id != "accept" && (viewId.endsWith(id) || viewId.contains(id)) }
+        val isGenericAcceptId = !isSpecificAcceptId && ACCEPT_VIEW_IDS.any { viewId.endsWith(it) || viewId.contains(it) }
 
-            if (isAcceptId || isAcceptKeyword) {
-                val lowerStr = rawContent?.lowercase() ?: ""
-                val isBlacklisted = lowerStr.contains("reject") ||
-                        lowerStr.contains("رفض") ||
-                        lowerStr.contains("إلغاء") ||
-                        lowerStr.contains("تجاهل") ||
-                        lowerStr.contains("خروج") ||
-                        lowerStr.contains("رجوع") ||
-                        lowerStr.contains("cancel") ||
-                        lowerStr.contains("decline") ||
-                        lowerStr.contains("dismiss") ||
-                        lowerStr.contains("موقعك") ||
-                        viewId.contains("reject") ||
-                        viewId.contains("cancel") ||
-                        viewId.contains("decline") ||
-                        viewId.contains("dismiss") ||
-                        viewId.contains("location") ||
-                        viewId.contains("gps")
+        val candidatePriority = when {
+            isSliderKeyword -> 4
+            isDirectAcceptKeyword -> 3
+            isSpecificAcceptId -> 2
+            isGenericAcceptId -> 1
+            else -> 0
+        }
 
-                if (!isBlacklisted) {
-                    val b = Rect()
-                    node.getBoundsInScreen(b)
+        if (candidatePriority > 0 && candidatePriority >= result.acceptButtonPriority) {
+            val lowerStr = rawContent?.lowercase() ?: ""
+            val isBlacklisted = lowerStr.contains("reject") ||
+                    lowerStr.contains("رفض") ||
+                    lowerStr.contains("إلغاء") ||
+                    lowerStr.contains("تجاهل") ||
+                    lowerStr.contains("خروج") ||
+                    lowerStr.contains("رجوع") ||
+                    lowerStr.contains("cancel") ||
+                    lowerStr.contains("decline") ||
+                    lowerStr.contains("dismiss") ||
+                    lowerStr.contains("موقعك") ||
+                    viewId.contains("reject") ||
+                    viewId.contains("cancel") ||
+                    viewId.contains("decline") ||
+                    viewId.contains("dismiss") ||
+                    viewId.contains("location") ||
+                    viewId.contains("gps")
+
+            if (!isBlacklisted) {
+                val b = Rect()
+                node.getBoundsInScreen(b)
+                val currentY = result.acceptButtonBounds?.centerY() ?: -1
+                val shouldReplace = candidatePriority > result.acceptButtonPriority || b.centerY() > currentY
+                if (shouldReplace && !b.isEmpty && b.width() > 50 && b.height() > 20 && b.centerY() >= (displayHeight * 0.20f)) {
                     result.acceptButtonNode = node
                     result.acceptButtonBounds = b
+                    result.acceptButtonPriority = candidatePriority
                 }
             }
         }
@@ -566,13 +638,14 @@ class LocateGoAccessibilityService : AccessibilityService() {
             val nodeBounds = Rect()
             node.getBoundsInScreen(nodeBounds)
 
-            if (lowerStr.contains("موقعك") || lowerStr.contains("your location")) {
+            if (lowerStr == "موقعك" || lowerStr.contains("موقعك") || lowerStr.contains("your location")) {
                 result.hasUserLabel = true
                 if (result.userLabelX == null && !nodeBounds.isEmpty) {
                     result.userLabelX = nodeBounds.centerX().toFloat()
                 }
             }
-            if (lowerStr.contains("المتجر") || lowerStr.contains("المطعم") || lowerStr.contains("متجر") || lowerStr.contains("مطعم") || lowerStr.contains("الاستلام") || lowerStr.contains("pickup") || lowerStr.contains("store")) {
+            if (lowerStr == "المتجر" || lowerStr == "المطعم" || lowerStr == "store" || lowerStr == "pickup" ||
+                lowerStr.contains("مسافة المتجر") || lowerStr.contains("مسافة المطعم") || lowerStr.contains("مسافة الاستلام")) {
                 result.hasStoreLabel = true
                 if (result.storeLabelX == null && !nodeBounds.isEmpty && (lowerStr == "المتجر" || lowerStr == "المطعم" || lowerStr == "store")) {
                     result.storeLabelX = nodeBounds.centerX().toFloat()
@@ -647,21 +720,32 @@ class LocateGoAccessibilityService : AccessibilityService() {
         val bounds = Rect()
         node.getBoundsInScreen(bounds)
 
-        // 1. نقر Accessibility فوري متزامن على العقدة والوالد (في حال كان الزر يدعم النقر المباشر)
-        try {
-            node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            node.parent?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-        } catch (_: Exception) {}
+        val nodeText = ((node.text?.toString() ?: "") + " " + (node.contentDescription?.toString() ?: "")).lowercase()
+        val nodeViewId = node.viewIdResourceName?.lowercase() ?: ""
+        val isSliderControl = ACCEPT_SLIDER_KEYWORDS.any { nodeText.contains(it, ignoreCase = true) } ||
+                nodeViewId.contains("slide") || nodeViewId.contains("swipe") || nodeViewId.contains("drag")
 
-        // إذا كانت العقدة تمثل نصاً داخلياً، نصعد للحاوية الأب للحصول على أبعاد العنصر التفاعلي الكامل
+        // 1. نقر Accessibility فقط للأزرار المباشرة (وليس لأشرطة السحب حتى لا يعيق السحب)
+        if (!isSliderControl) {
+            try {
+                node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                node.parent?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            } catch (_: Exception) {}
+        }
+
+        // إذا كانت العقدة تمثل نصاً داخلياً داخل شريط السحب، نصعد للحاوية الأب للشريط نفسه دون التوسع لحاوية البطاقة كاملة
+        val originalBounds = Rect(bounds)
         var pNode: AccessibilityNodeInfo? = node.parent
-        while (pNode != null) {
+        var climbDepth = 0
+        while (pNode != null && climbDepth < 4) {
             val pBounds = Rect()
             pNode.getBoundsInScreen(pBounds)
-            if (pBounds.width() > bounds.width() && pBounds.height() in 35..650) {
+            val verticalCenterShift = kotlin.math.abs(pBounds.centerY() - originalBounds.centerY())
+            if (pBounds.width() > bounds.width() && pBounds.height() in 35..280 && verticalCenterShift <= 90) {
                 bounds.set(pBounds)
             }
             pNode = pNode.parent
+            climbDepth++
         }
 
         // تحقق أمني: التأكد من أن أبعاد الشريط واقعية وتقع في الجزء المناسب للشاشة
@@ -673,40 +757,49 @@ class LocateGoAccessibilityService : AccessibilityService() {
         val cx = bounds.centerX().toFloat()
         val cy = bounds.centerY().toFloat()
 
-        // حساب نقاط السحب الدقيقة
-        val handlePadding = (bounds.height().toFloat() * 0.35f).coerceIn(20f, 80f)
+        // حساب نقاط السحب الدقيقة على مسار شريط السحب الكامل
+        val handlePadding = (bounds.height().toFloat() * 0.35f).coerceIn(20f, 75f)
         val startX = (bounds.left.toFloat() + handlePadding).coerceAtLeast(10f)
         val endX = (bounds.right.toFloat() - handlePadding).coerceAtMost(screenWidth - 10f)
 
-        val durationMs = cachedSwipeSpeedMs.coerceIn(40L, 200L)
+        // مدة سحب واقعية وسريعة تضمن استجابة مسار السحب في أندرويد/فلاتر دون فقدان إطارات الحركة
+        val swipeDurationMs = cachedSwipeSpeedMs.coerceIn(130L, 300L)
 
-        // بناء حزمة إيماءات مركبة وشاملة (Hardware Tap + Dual RTL/LTR Swipes)
         val gestureBuilder = GestureDescription.Builder()
 
-        // 1. نقرة شاشة عتادية سريعة عند المركز (تستهدف أزرار القبول المباشرة في 15ms)
-        val tapPath = Path().apply {
-            moveTo(cx, cy)
-            lineTo(cx, cy)
-        }
-        val tapStroke = GestureDescription.StrokeDescription(tapPath, 0L, 15L)
-        gestureBuilder.addStroke(tapStroke)
-
-        // 2. سحب من اليسار إلى اليمين (LTR Swipe) لأشرطة السحب القياسية
         if (endX > startX + 50f) {
+            // 1. سحب أساسي من اليسار إلى اليمين (LTR Swipe — مطابق لشريط "اسحب لقبول الطلب")
             val ltrPath = Path().apply {
                 moveTo(startX, cy)
                 lineTo(endX, cy)
             }
-            val ltrStroke = GestureDescription.StrokeDescription(ltrPath, 20L, durationMs)
+            val ltrStroke = GestureDescription.StrokeDescription(ltrPath, 0L, swipeDurationMs)
             gestureBuilder.addStroke(ltrStroke)
 
-            // 3. سحب معاكس من اليمين إلى اليسار (RTL Swipe) لأشرطة السحب في التطبيقات العربية
+            // 2. سحب احتياطي معاكس من اليمين إلى اليسار للواجهات المعكوسة (RTL Swipe)
+            val rtlStartDelay = swipeDurationMs + 25L
             val rtlPath = Path().apply {
                 moveTo(endX, cy)
                 lineTo(startX, cy)
             }
-            val rtlStroke = GestureDescription.StrokeDescription(rtlPath, 20L + durationMs + 10L, durationMs)
+            val rtlStroke = GestureDescription.StrokeDescription(rtlPath, rtlStartDelay, swipeDurationMs)
             gestureBuilder.addStroke(rtlStroke)
+
+            // 3. نقرة خفيفة بعد السحب فقط إذا لم يكن العنصر شريط سحب صريحاً (لأزرار القبول المباشرة)
+            if (!isSliderControl) {
+                val tapPath = Path().apply {
+                    moveTo(cx, cy)
+                    lineTo(cx, cy)
+                }
+                val tapStroke = GestureDescription.StrokeDescription(tapPath, rtlStartDelay + swipeDurationMs + 15L, 25L)
+                gestureBuilder.addStroke(tapStroke)
+            }
+        } else {
+            val tapPath = Path().apply {
+                moveTo(cx, cy)
+                lineTo(cx, cy)
+            }
+            gestureBuilder.addStroke(GestureDescription.StrokeDescription(tapPath, 0L, 25L))
         }
 
         val gesture = gestureBuilder.build()
@@ -773,9 +866,10 @@ class LocateGoAccessibilityService : AccessibilityService() {
             when (ch) {
                 in '\u0660'..'\u0669' -> '0' + (ch - '\u0660')
                 in '\u06F0'..'\u06F9' -> '0' + (ch - '\u06F0')
+                '\u066B', ',' -> '.'
                 else -> ch
             }
-        }.joinToString("").replace(',', '.')
+        }.joinToString("")
         return normalized.toDoubleOrNull()?.takeIf { it >= 0.0 }
     }
 
