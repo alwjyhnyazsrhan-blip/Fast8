@@ -320,7 +320,7 @@ export const LocateAssistantModal: React.FC<LocateAssistantModalProps> = ({
 
         {/* Preset Buttons for Quick Selection */}
         <div className="grid grid-cols-4 gap-1.5 my-1.5">
-          {[60, 100, 150, 200].map((preset) => (
+          {[40, 60, 100, 150].map((preset) => (
             <button
               key={preset}
               onClick={() => handleSwipeSpeedChange(preset)}
@@ -336,7 +336,7 @@ export const LocateAssistantModal: React.FC<LocateAssistantModalProps> = ({
         </div>
 
         <p className="text-[10px] text-slate-400 font-medium">
-          60ms (الأسرع والأقوى) — {t.fastSwipeDesc}
+          40ms (الأسرع والأقوى) — {t.fastSwipeDesc}
         </p>
       </div>
 

@@ -128,7 +128,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
     @Volatile private var cachedMaxPickupKm: Double = 1.5  // الحد الأقصى لمسافة المطعم (الاستلام)
     @Volatile private var cachedMinPayoutSar: Double = 0.0
     @Volatile private var cachedAutoAccept: Boolean = true
-    @Volatile private var cachedSwipeSpeedMs: Long = 60L   // سرعة سحب فائقة السرعة (60ms)
+    @Volatile private var cachedSoundAlerts: Boolean = true
+    @Volatile private var cachedVibrationFeedback: Boolean = true
+    @Volatile private var cachedSwipeSpeedMs: Long = 60L   // سرعة سحب فائقة السرعة
     @Volatile private var cachedTapIntervalMs: Long = 10L  // فاصل النقرات المتتالية (ms)
     @Volatile private var cachedEnableCustomInterval: Boolean = false
 
@@ -208,7 +210,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
         cachedMaxPickupKm = prefs.getFloat("max_pickup_distance_km", 1.5f).toDouble()
         cachedMinPayoutSar = prefs.getFloat("min_payout_sar", 0.0f).toDouble()
         cachedAutoAccept = prefs.getBoolean("auto_accept", true)
-        cachedSwipeSpeedMs = prefs.getInt("swipe_speed_ms", 60).toLong().coerceIn(40L, 500L)
+        cachedSoundAlerts = prefs.getBoolean("sound_alerts", true)
+        cachedVibrationFeedback = prefs.getBoolean("vibration_feedback", true)
+        cachedSwipeSpeedMs = prefs.getInt("swipe_speed_ms", 60).toLong().coerceIn(30L, 500L)
         cachedTapIntervalMs = prefs.getInt("tap_interval_ms", 10).toLong()
         cachedEnableCustomInterval = prefs.getBoolean("enable_custom_interval", false)
     }
@@ -224,7 +228,9 @@ class LocateGoAccessibilityService : AccessibilityService() {
                 "max_pickup_distance_km" -> cachedMaxPickupKm = sp.getFloat("max_pickup_distance_km", 1.5f).toDouble()
                 "min_payout_sar" -> cachedMinPayoutSar = sp.getFloat("min_payout_sar", 0.0f).toDouble()
                 "auto_accept" -> cachedAutoAccept = sp.getBoolean("auto_accept", true)
-                "swipe_speed_ms" -> cachedSwipeSpeedMs = sp.getInt("swipe_speed_ms", 60).toLong().coerceIn(40L, 500L)
+                "sound_alerts" -> cachedSoundAlerts = sp.getBoolean("sound_alerts", true)
+                "vibration_feedback" -> cachedVibrationFeedback = sp.getBoolean("vibration_feedback", true)
+                "swipe_speed_ms" -> cachedSwipeSpeedMs = sp.getInt("swipe_speed_ms", 60).toLong().coerceIn(30L, 500L)
                 "tap_interval_ms" -> cachedTapIntervalMs = sp.getInt("tap_interval_ms", 10).toLong()
                 "enable_custom_interval" -> cachedEnableCustomInterval = sp.getBoolean("enable_custom_interval", false)
             }
@@ -474,7 +480,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
         // منع التكرار لنفس الطلب
         val deduplicationKey = "${extractedOrderId ?: ""}|$deliveryDistKm|$pickupDistKm|$storeName"
         val now = System.currentTimeMillis()
-        if (processedOrdersCache[deduplicationKey]?.let { now - it < 1200 } == true) return
+        if (processedOrdersCache[deduplicationKey]?.let { now - it < 750 } == true) return
 
         // =========================================================================
         // القواعد الصارمة والقطعية للموافقة على الطلب (Fail-Closed):
@@ -735,6 +741,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
 
         // إذا كانت العقدة تمثل نصاً داخلياً داخل شريط السحب، نصعد للحاوية الأب للشريط نفسه دون التوسع لحاوية البطاقة كاملة
         val originalBounds = Rect(bounds)
+        var sliderContainer: AccessibilityNodeInfo = node
         var pNode: AccessibilityNodeInfo? = node.parent
         var climbDepth = 0
         while (pNode != null && climbDepth < 4) {
@@ -743,6 +750,7 @@ class LocateGoAccessibilityService : AccessibilityService() {
             val verticalCenterShift = kotlin.math.abs(pBounds.centerY() - originalBounds.centerY())
             if (pBounds.width() > bounds.width() && pBounds.height() in 35..280 && verticalCenterShift <= 90) {
                 bounds.set(pBounds)
+                sliderContainer = pNode
             }
             pNode = pNode.parent
             climbDepth++
@@ -757,55 +765,71 @@ class LocateGoAccessibilityService : AccessibilityService() {
         val cx = bounds.centerX().toFloat()
         val cy = bounds.centerY().toFloat()
 
-        // حساب نقاط السحب الدقيقة على مسار شريط السحب الكامل
-        val handlePadding = (bounds.height().toFloat() * 0.35f).coerceIn(20f, 75f)
-        val startX = (bounds.left.toFloat() + handlePadding).coerceAtLeast(10f)
-        val endX = (bounds.right.toFloat() - handlePadding).coerceAtMost(screenWidth - 10f)
+        // كشف موضع دائرة السحب (يسار أو يمين) تلقائياً لضمان السحب بالاتجاه الصحيح من أول مرة
+        var isRightThumb = false
+        try {
+            val childCount = sliderContainer.childCount
+            for (i in 0 until childCount) {
+                val child = sliderContainer.getChild(i) ?: continue
+                val cBounds = Rect()
+                child.getBoundsInScreen(cBounds)
+                if (!cBounds.isEmpty && cBounds.width() < bounds.width() * 0.35f) {
+                    if (cBounds.centerX() > bounds.centerX() + bounds.width() * 0.28f) {
+                        isRightThumb = true
+                    } else if (cBounds.centerX() < bounds.centerX() - bounds.width() * 0.28f) {
+                        isRightThumb = false
+                    }
+                }
+            }
+        } catch (_: Exception) {}
 
-        // مدة سحب واقعية وسريعة تضمن استجابة مسار السحب في أندرويد/فلاتر دون فقدان إطارات الحركة
-        val swipeDurationMs = cachedSwipeSpeedMs.coerceIn(130L, 300L)
+        // احترام سرعة السحب المختارة من السائق مباشرة (مثل 40ms) بدون تقييد بطيء
+        val swipeDurationMs = cachedSwipeSpeedMs.coerceIn(30L, 400L)
+
+        // حساب نقاط السحب من داخل دائرة السحب حتى تجاوز نهاية الشريط بالكامل لتأكيد القبول بقوة
+        val startInset = (bounds.height().toFloat() * 0.20f).coerceIn(14f, 34f)
+        val endOvershoot = 18f
+        val leftX = (bounds.left.toFloat() + startInset).coerceAtLeast(8f)
+        val rightX = (bounds.right.toFloat() - startInset).coerceAtMost(screenWidth - 8f)
 
         val gestureBuilder = GestureDescription.Builder()
 
-        if (endX > startX + 50f) {
-            // 1. سحب أساسي من اليسار إلى اليمين (LTR Swipe — مطابق لشريط "اسحب لقبول الطلب")
-            val ltrPath = Path().apply {
-                moveTo(startX, cy)
-                lineTo(endX, cy)
+        if (isSliderControl && rightX > leftX + 50f) {
+            val fromX = if (isRightThumb) rightX else leftX
+            val toX = if (isRightThumb) {
+                (bounds.left.toFloat() - endOvershoot).coerceAtLeast(4f)
+            } else {
+                (bounds.right.toFloat() + endOvershoot).coerceAtMost(screenWidth - 4f)
             }
-            val ltrStroke = GestureDescription.StrokeDescription(ltrPath, 0L, swipeDurationMs)
-            gestureBuilder.addStroke(ltrStroke)
 
-            // 2. سحب احتياطي معاكس من اليمين إلى اليسار للواجهات المعكوسة (RTL Swipe)
-            val rtlStartDelay = swipeDurationMs + 25L
-            val rtlPath = Path().apply {
-                moveTo(endX, cy)
-                lineTo(startX, cy)
+            val swipePath = Path().apply {
+                moveTo(fromX, cy)
+                lineTo(toX, cy)
             }
-            val rtlStroke = GestureDescription.StrokeDescription(rtlPath, rtlStartDelay, swipeDurationMs)
-            gestureBuilder.addStroke(rtlStroke)
-
-            // 3. نقرة خفيفة بعد السحب فقط إذا لم يكن العنصر شريط سحب صريحاً (لأزرار القبول المباشرة)
-            if (!isSliderControl) {
-                val tapPath = Path().apply {
-                    moveTo(cx, cy)
-                    lineTo(cx, cy)
-                }
-                val tapStroke = GestureDescription.StrokeDescription(tapPath, rtlStartDelay + swipeDurationMs + 15L, 25L)
-                gestureBuilder.addStroke(tapStroke)
+            gestureBuilder.addStroke(GestureDescription.StrokeDescription(swipePath, 0L, swipeDurationMs))
+        } else if (rightX > leftX + 50f) {
+            val swipePath = Path().apply {
+                moveTo(leftX, cy)
+                lineTo((bounds.right.toFloat() + endOvershoot).coerceAtMost(screenWidth - 4f), cy)
             }
+            gestureBuilder.addStroke(GestureDescription.StrokeDescription(swipePath, 0L, swipeDurationMs))
+            val tapPath = Path().apply {
+                moveTo(cx, cy)
+                lineTo(cx, cy)
+            }
+            gestureBuilder.addStroke(GestureDescription.StrokeDescription(tapPath, swipeDurationMs + 10L, 20L))
         } else {
             val tapPath = Path().apply {
                 moveTo(cx, cy)
                 lineTo(cx, cy)
             }
-            gestureBuilder.addStroke(GestureDescription.StrokeDescription(tapPath, 0L, 25L))
+            gestureBuilder.addStroke(GestureDescription.StrokeDescription(tapPath, 0L, 20L))
         }
 
         val gesture = gestureBuilder.build()
         val dispatched = dispatchGesture(gesture, object : GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription?) {
-                Log.i("LocateGoService", "⚡⚡ ULTRA-SPEED DUAL SWIPE & TAP DISPATCHED SUCCESSFULLY!")
+                Log.i("LocateGoService", "⚡⚡ FULL-SPAN SWIPE COMPLETED in ${swipeDurationMs}ms!")
             }
             override fun onCancelled(gestureDescription: GestureDescription?) {
                 Log.w("LocateGoService", "⚠️ Gesture cancelled or intercepted")
@@ -931,11 +955,63 @@ class LocateGoAccessibilityService : AccessibilityService() {
     }
 
     private fun notifyDriverAcceptedAsync() {
-        // تم تعطيل كافة الأصوات والاهتزازات نهائياً (Silent & Vibration-Free Mode)
+        if (cachedVibrationFeedback) {
+            try {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 90, 55, 110), -1))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(longArrayOf(0, 90, 55, 110), -1)
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (cachedSoundAlerts) {
+            serviceScope.launch {
+                var toneGen: ToneGenerator? = null
+                try {
+                    toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
+                    toneGen.startTone(ToneGenerator.TONE_PROP_ACK, 180)
+                    delay(210)
+                    toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 160)
+                    delay(200)
+                } catch (_: Exception) {
+                } finally {
+                    try { toneGen?.release() } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     private fun notifyDriverRejectedAsync() {
-        // تم تعطيل كافة الأصوات والاهتزازات نهائياً (Silent & Vibration-Free Mode)
+        if (cachedVibrationFeedback) {
+            try {
+                @Suppress("DEPRECATION")
+                val vibrator = getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator?.vibrate(VibrationEffect.createOneShot(45, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator?.vibrate(45)
+                }
+            } catch (_: Exception) {}
+        }
+
+        if (cachedSoundAlerts) {
+            serviceScope.launch {
+                var toneGen: ToneGenerator? = null
+                try {
+                    toneGen = ToneGenerator(AudioManager.STREAM_MUSIC, 85)
+                    toneGen.startTone(ToneGenerator.TONE_PROP_NACK, 150)
+                    delay(180)
+                } catch (_: Exception) {
+                } finally {
+                    try { toneGen?.release() } catch (_: Exception) {}
+                }
+            }
+        }
     }
 
     override fun onDestroy() {
